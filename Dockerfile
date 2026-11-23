@@ -28,13 +28,13 @@ COPY src/HealthAuthorizations.Api/HealthAuthorizations.Api.csproj               
 
 RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
     dotnet tool restore \
- && dotnet restore src/HealthAuthorizations.Api/HealthAuthorizations.Api.csproj -a $TARGETARCH
+ && dotnet restore src/HealthAuthorizations.Api/HealthAuthorizations.Api.csproj -a "$TARGETARCH"
 
 COPY src/ src/
 
 RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
     dotnet publish src/HealthAuthorizations.Api/HealthAuthorizations.Api.csproj \
-        -c $CONFIGURATION -a $TARGETARCH --no-restore \
+        -c "$CONFIGURATION" -a "$TARGETARCH" --no-restore \
         -o /out/api -p:UseAppHost=false
 
 # ---------------------------------------------------------------------------------------------------
@@ -49,7 +49,7 @@ RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
     RID=$([ "$TARGETARCH" = "arm64" ] && echo linux-arm64 || echo linux-x64) \
  && dotnet ef migrations bundle \
         -p src/HealthAuthorizations.Infrastructure -s src/HealthAuthorizations.Api \
-        -r $RID --self-contained -o /out/migrator/efbundle
+        -r "$RID" --self-contained -o /out/migrator/efbundle
 
 # ---------------------------------------------------------------------------------------------------
 # migrator: aplica las migraciones pendientes y termina (job de Kubernetes / servicio de compose).

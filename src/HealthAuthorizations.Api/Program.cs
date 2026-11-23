@@ -88,4 +88,9 @@ app.MapApiHealthChecks();
 await app.RunAsync();
 
 /// <summary>Punto de entrada; parcial y público para las pruebas con WebApplicationFactory.</summary>
-public partial class Program;
+public partial class Program
+{
+    protected Program()
+    {
+    }
+}
