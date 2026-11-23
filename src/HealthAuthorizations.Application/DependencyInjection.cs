@@ -1,4 +1,5 @@
 using FluentValidation;
+using HealthAuthorizations.Application.Autorizaciones.Common;
 using HealthAuthorizations.Application.Common.Behaviors;
 using HealthAuthorizations.Application.Common.Options;
 using HealthAuthorizations.Domain.Cobertura;
@@ -35,6 +36,7 @@ public static class DependencyInjection
         });
 
         services.AddValidatorsFromAssembly(assembly, includeInternalTypes: true);
+        services.AddScoped<ReferenciasAutorizacion>();
 
         // Regla de cobertura configurable; se valida al arrancar para fallar rápido.
         services.AddOptions<CoberturaOptions>()
