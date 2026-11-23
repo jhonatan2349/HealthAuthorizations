@@ -1,6 +1,7 @@
 using HealthAuthorizations.Application.Autorizaciones.Common;
 using HealthAuthorizations.Application.Common.Interfaces;
 using HealthAuthorizations.Application.Common.Results;
+using HealthAuthorizations.Application.Common.Telemetry;
 using HealthAuthorizations.Domain.Autorizaciones;
 using HealthAuthorizations.Domain.Cobertura;
 using MapsterMapper;
@@ -12,7 +13,8 @@ internal sealed class ActualizarAutorizacionHandler(
     IApplicationDbContext db,
     IPoliticaCobertura politica,
     ReferenciasAutorizacion referencias,
-    IMapper mapper) : IRequestHandler<ActualizarAutorizacionCommand, Result<AutorizacionDto>>
+    IMapper mapper,
+    ApplicationTelemetry telemetry) : IRequestHandler<ActualizarAutorizacionCommand, Result<AutorizacionDto>>
 {
     public async Task<Result<AutorizacionDto>> Handle(ActualizarAutorizacionCommand request, CancellationToken cancellationToken)
     {
@@ -36,6 +38,7 @@ internal sealed class ActualizarAutorizacionHandler(
             politica);
 
         await db.SaveChangesAsync(cancellationToken);
+        telemetry.AutorizacionActualizada();
 
         return (await AutorizacionReadModel.ObtenerAsync(db, request.Id, cancellationToken))!;
     }
