@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using HealthAuthorizations.Api.ErrorHandling;
+using HealthAuthorizations.Api.Middleware;
 using HealthAuthorizations.Api.Services;
 using HealthAuthorizations.Application;
 using HealthAuthorizations.Application.Common.Interfaces;
@@ -22,6 +23,7 @@ builder.Services.AddInfrastructure(builder.Configuration);
 
 var app = builder.Build();
 
+app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 
