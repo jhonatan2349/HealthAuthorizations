@@ -9,19 +9,14 @@ namespace HealthAuthorizations.Application.Autorizaciones.Listar;
 /// <summary>
 /// Paginación keyset: <c>WHERE Id &lt; @cursor ORDER BY Id DESC</c> usa el índice agrupado (o la clave incluida
 /// en cada índice no agrupado) y cuesta lo mismo en la página 1 que en la 10.000, a diferencia de OFFSET.
-/// Se pide una fila de más para saber si hay otra página sin ejecutar COUNT(*).
 /// </summary>
 internal sealed class ListarAutorizacionesHandler(IApplicationDbContext db)
     : IRequestHandler<ListarAutorizacionesQuery, CursorPage<AutorizacionResumenDto>>
 {
     public async Task<CursorPage<AutorizacionResumenDto>> Handle(ListarAutorizacionesQuery request, CancellationToken cancellationToken)
     {
-        var pagina = Filtrar(db.Autorizaciones.AsNoTracking(), request)
-            .OrderByDescending(a => a.Id)
-            .Take(request.Limite + 1);
-
-        var filas = await (
-            from a in pagina
+        var consulta =
+            from a in Filtrar(db.Autorizaciones.AsNoTracking(), request)
             join af in db.Afiliados on a.AfiliadoId equals af.Id
             join p in db.Prestadores on a.PrestadorId equals p.Id
             join c in db.Contratantes on a.ContratanteId equals c.Id
@@ -42,14 +37,9 @@ internal sealed class ListarAutorizacionesHandler(IApplicationDbContext db)
                 a.MontoArs,
                 a.MontoAfiliado,
                 a.Detalles.Count,
-                a.CreadoEn))
-            .ToListAsync(cancellationToken);
+                a.CreadoEn);
 
-        var hayMas = filas.Count > request.Limite;
-        var items = hayMas ? filas.Take(request.Limite).ToList() : filas;
-        var siguiente = hayMas ? Cursor.Encode(items[^1].Id) : null;
-
-        return new CursorPage<AutorizacionResumenDto>(items, siguiente, request.Limite);
+        return await consulta.ToCursorPageAsync(request.Limite, a => a.Id, cancellationToken);
     }
 
     private IQueryable<Autorizacion> Filtrar(IQueryable<Autorizacion> query, ListarAutorizacionesQuery f)

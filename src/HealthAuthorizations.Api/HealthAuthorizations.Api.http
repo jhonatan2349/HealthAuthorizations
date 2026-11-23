@@ -1,6 +1,82 @@
-@HealthAuthorizations.Api_HostAddress = http://localhost:5048
+# Flujo de demostración de la API. Requiere la API corriendo (dotnet run --project src/HealthAuthorizations.Api).
+# Documentación interactiva: http://localhost:5048/scalar
 
-GET {{HealthAuthorizations.Api_HostAddress}}/openapi/v1.json
-Accept: application/json
+@host = http://localhost:5048
+@api = {{host}}/api/v1
+
+### 1. Catálogos para armar la solicitud
+GET {{api}}/catalogos/tipos-servicio
 
 ###
+GET {{api}}/catalogos/prestadores?tipoPrestadorId=3
+
+###
+GET {{api}}/catalogos/afiliados?buscar=Santos
+
+### 2. Crear autorización (idempotente). Repetir esta misma solicitud devuelve la misma autorización.
+# @name crear
+POST {{api}}/autorizaciones
+Content-Type: application/json
+Idempotency-Key: demo-0001
+X-Correlation-Id: demo-crear
+
+{
+  "afiliadoId": 3,
+  "prestadorId": 5,
+  "fechaServicio": "{{$datetime 'YYYY-MM-DD'}}",
+  "diagnostico": "Dolor abdominal",
+  "servicios": [
+    { "tipoServicioId": 1, "descripcion": "Consulta de emergencia", "montoReclamado": 1500.00 },
+    { "tipoServicioId": 4, "descripcion": "Hemograma completo", "montoReclamado": 333.33 }
+  ]
+}
+
+### 3. Detalle (devuelve ETag)
+# @name detalle
+GET {{api}}/autorizaciones/{{crear.response.body.id}}
+
+### 4. Detalle condicional: 304 si no cambió
+GET {{api}}/autorizaciones/{{crear.response.body.id}}
+If-None-Match: {{detalle.response.headers.ETag}}
+
+### 5. Actualizar con concurrencia optimista (repetirla devuelve 412)
+PUT {{api}}/autorizaciones/{{crear.response.body.id}}
+Content-Type: application/json
+If-Match: {{detalle.response.headers.ETag}}
+
+{
+  "prestadorId": 7,
+  "fechaServicio": "{{$datetime 'YYYY-MM-DD'}}",
+  "diagnostico": "Control",
+  "servicios": [
+    { "tipoServicioId": 5, "descripcion": "Radiografía de tórax", "montoReclamado": 2000.00 }
+  ]
+}
+
+### 6. Listado rápido con filtros y cursor (usar nextCursor para la página siguiente)
+GET {{api}}/autorizaciones?estado=Activa&limite=5
+
+###
+GET {{api}}/autorizaciones?afiliadoId=3&fechaDesde=2026-01-01&tipoServicioId=5
+
+### 7. Inactivar (se conserva para el histórico; repetirla devuelve 409)
+POST {{api}}/autorizaciones/{{crear.response.body.id}}/inactivacion
+Content-Type: application/json
+
+{ "motivo": "Emitida por error de digitación" }
+
+### 8. Errores con ProblemDetails
+# 400: validación
+POST {{api}}/autorizaciones
+Content-Type: application/json
+
+{ "afiliadoId": 0, "prestadorId": 5, "fechaServicio": "2026-11-20", "servicios": [] }
+
+### 422: afiliado inexistente
+POST {{api}}/autorizaciones
+Content-Type: application/json
+
+{ "afiliadoId": 9999, "prestadorId": 5, "fechaServicio": "{{$datetime 'YYYY-MM-DD'}}", "servicios": [ { "tipoServicioId": 1, "descripcion": "Consulta", "montoReclamado": 100 } ] }
+
+### 404
+GET {{api}}/autorizaciones/999999999

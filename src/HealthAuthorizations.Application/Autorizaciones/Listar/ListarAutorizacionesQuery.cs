@@ -21,7 +21,7 @@ public sealed record ListarAutorizacionesQuery(
     DateOnly? FechaDesde = null,
     DateOnly? FechaHasta = null,
     string? Cursor = null,
-    int Limite = ListarAutorizacionesQuery.LimitePorDefecto) : IRequest<CursorPage<AutorizacionResumenDto>>
+    int Limite = ListarAutorizacionesQuery.LimitePorDefecto) : IRequest<CursorPage<AutorizacionResumenDto>>, IPaginada
 {
     public const int LimitePorDefecto = 20;
     public const int LimiteMaximo = 100;

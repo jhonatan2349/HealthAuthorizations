@@ -9,11 +9,7 @@ public sealed class ListarAutorizacionesValidator : AbstractValidator<ListarAuto
 {
     public ListarAutorizacionesValidator()
     {
-        RuleFor(x => x.Limite).InclusiveBetween(1, ListarAutorizacionesQuery.LimiteMaximo);
-
-        RuleFor(x => x.Cursor)
-            .Must(c => c is null || Cursor.TryDecode(c, out _))
-            .WithMessage("El cursor no es válido. Use el valor NextCursor de la página anterior.");
+        Include(new PaginacionValidator(ListarAutorizacionesQuery.LimiteMaximo));
 
         RuleFor(x => x)
             .Must(x => x.FechaDesde is null || x.FechaHasta is null || x.FechaDesde <= x.FechaHasta)
