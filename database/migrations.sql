@@ -482,3 +482,43 @@ END;
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261123205944_OutboxMensajesIntegracion'
+)
+BEGIN
+    CREATE TABLE [OutboxMessages] (
+        [Id] uniqueidentifier NOT NULL,
+        [Tipo] varchar(150) NOT NULL,
+        [Contenido] nvarchar(max) NOT NULL,
+        [OcurridoEn] datetimeoffset NOT NULL,
+        [TraceParent] varchar(55) NULL,
+        [ProcesadoEn] datetimeoffset NULL,
+        [Intentos] int NOT NULL,
+        [UltimoError] nvarchar(2000) NULL,
+        [BloqueadoHasta] datetimeoffset NULL,
+        CONSTRAINT [PK_OutboxMessages] PRIMARY KEY ([Id])
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261123205944_OutboxMensajesIntegracion'
+)
+BEGIN
+    EXEC(N'CREATE INDEX [IX_OutboxMessages_Pendientes] ON [OutboxMessages] ([OcurridoEn]) WHERE [ProcesadoEn] IS NULL');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261123205944_OutboxMensajesIntegracion'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261123205944_OutboxMensajesIntegracion', N'10.0.15');
+END;
+
+COMMIT;
+GO
+

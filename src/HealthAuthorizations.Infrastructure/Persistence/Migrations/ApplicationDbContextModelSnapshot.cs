@@ -908,6 +908,52 @@ namespace HealthAuthorizations.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("HealthAuthorizations.Infrastructure.Persistence.Outbox.OutboxMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("BloqueadoHasta")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Contenido")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Intentos")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("OcurridoEn")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("ProcesadoEn")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<string>("TraceParent")
+                        .HasMaxLength(55)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(55)");
+
+                    b.Property<string>("UltimoError")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OcurridoEn")
+                        .HasDatabaseName("IX_OutboxMessages_Pendientes")
+                        .HasFilter("[ProcesadoEn] IS NULL");
+
+                    b.ToTable("OutboxMessages", (string)null);
+                });
+
             modelBuilder.Entity("HealthAuthorizations.Domain.Autorizaciones.Autorizacion", b =>
                 {
                     b.HasOne("HealthAuthorizations.Domain.Catalogos.Afiliado", null)
