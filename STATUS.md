@@ -15,7 +15,7 @@ Actualizar al cerrar cada fase (y antes de cada merge a `main`).
 | 1 | Application base (Mapster) | `feature/application-mapster` | ✅ |
 | 2 | Dominio + Persistencia (EF Core, migraciones, seed) | `feature/fase-2-dominio-persistencia` | ✅ |
 | 3 | Application CQRS (MediatR, FluentValidation, reglas) | `feature/fase-3-cqrs` | ✅ |
-| 4 | API REST (endpoints, ProblemDetails, idempotencia, Scalar) | `feature/fase-4-api` | ⏳ |
+| 4 | API REST (endpoints, ProblemDetails, idempotencia, Scalar) | `feature/fase-4-api` | ✅ |
 | 5 | Seguridad (JWT, políticas, rate limiting) | `feature/fase-5-seguridad` | ⏳ |
 | 6 | Observabilidad y resiliencia (logs, OTel, health checks) | `feature/fase-6-observabilidad` | ⏳ |
 | 7 | Integración (Outbox + RabbitMQ, caché Redis) | `feature/fase-7-integracion` | ⏳ |
@@ -100,19 +100,30 @@ Actualizar al cerrar cada fase (y antes de cada merge a `main`).
 - [x] Mapster para mapear contratos de entrada a objetos de valor del dominio
 - [x] Pruebas: 55 unitarias de Application + 23 de integración con Testcontainers (SQL Server real) → 129 en total
 - [ ] Prueba de carga del listado con volumen alto (script de 1M de filas + plan de ejecución) → Fase 8
-- [ ] Consultas de catálogos (prestadores, afiliados, tipos) → Fase 4, junto con sus endpoints
+- [x] Consultas de catálogos (prestadores, afiliados, tipos) → hechas en la Fase 4
 
-### Fase 4 — API REST ⏳
-- [ ] Recursos: `POST/GET /api/v1/autorizaciones`, `GET/PUT /api/v1/autorizaciones/{id}`, `PATCH /api/v1/autorizaciones/{id}/inactivar` (o `DELETE` lógico — decidir y documentar)
-- [ ] Endpoints de catálogos de solo lectura
-- [ ] Códigos HTTP correctos: 201 + `Location`, 200, 204, 400, 401, 403, 404, 409, 412, 422
-- [ ] `ProblemDetails` (RFC 9457) vía `IExceptionHandler` global
-- [ ] Header `Idempotency-Key` en `POST` (evita duplicados por reintentos)
-- [ ] `ETag` / `If-Match` ligado al `rowversion` en `PUT`
-- [ ] Middleware de Correlation-Id
-- [ ] Versionado de API
-- [ ] OpenAPI + Scalar con ejemplos y esquema de seguridad JWT
-- [ ] Compresión de respuestas, `CancellationToken` en todos los endpoints
+### Fase 4 — API REST ✅
+- [x] Controllers con `[ApiController]`, rutas versionadas por prefijo `api/v1`
+- [x] `POST /api/v1/autorizaciones` → 201 + `Location` + `ETag`
+- [x] `GET /api/v1/autorizaciones` con 9 filtros y paginación por cursor (`nextCursor`, `hasMore`)
+- [x] `GET /api/v1/autorizaciones/{id}` con `ETag`; `If-None-Match` → 304
+- [x] `PUT /api/v1/autorizaciones/{id}` con `If-Match` → 412 si la versión no coincide
+- [x] `POST /api/v1/autorizaciones/{id}/inactivacion` (motivo obligatorio) → 204; repetir → 409
+- [x] Catálogos de solo lectura: tipos de servicio y prestador, contratantes, intermediarios, prestadores y afiliados (búsqueda + cursor)
+- [x] Header `Idempotency-Key`; reintentos responden lo mismo con `Idempotent-Replayed: true`
+- [x] Contratos HTTP separados de los comandos (idempotencia y versión viajan en headers)
+- [x] `ProblemDetails` (RFC 9457) vía `IExceptionHandler`: 400, 404, 409, 412, 422 y 500 sin detalles internos
+- [x] Todo error lleva `code` estable, `traceId` e `instance`, también los del framework (JSON malformado, 404 de ruta)
+- [x] Mensajes de validación en español
+- [x] Middleware de Correlation-Id: header `X-Correlation-Id`, scope de logging y `traceId` de los errores, con sanitización
+- [x] OpenAPI (`/openapi/v1.json`) con comentarios XML + Scalar (`/scalar`), en todos los ambientes salvo producción
+- [x] Enums como texto en JSON y en query string
+- [x] `CancellationToken` en todos los endpoints; cancelaciones del cliente no se registran como error
+- [x] Colección `.http` con el flujo de demostración
+- [x] 28 pruebas HTTP con `WebApplicationFactory` sobre SQL Server real → 157 pruebas en total
+- [x] Bug encontrado al probar manualmente (validadores parciales en DI) → corregido y el fixture valida el grafo (`ValidateOnBuild`)
+- ➖ Compresión de respuestas: se delega al ingress (evita BREACH sobre HTTPS con datos sensibles)
+- ➖ Librería de versionado (Asp.Versioning): con una sola versión basta el prefijo de ruta (YAGNI)
 
 ### Fase 5 — Seguridad ⏳
 - [ ] Autenticación JWT Bearer (validación de issuer, audience, lifetime, firma)
@@ -222,6 +233,11 @@ Actualizar al cerrar cada fase (y antes de cada merge a `main`).
 | 019 | Result pattern para errores esperados; excepciones para lo excepcional | Excepciones para todo | No encontrada, inactiva o referencia inexistente son flujos normales: Result los hace explícitos y baratos. Validación de entrada y concurrencia usan excepciones porque cortan el pipeline y las maneja un handler global. |
 | 020 | Lado de lectura con JOINs y proyección directa | Navegaciones en el agregado + Include + Mapster `ProjectToType` | El agregado referencia a otros por Id (DDD). La proyección trae solo las columnas necesarias en una consulta. Mapster se usa donde aporta: mapear contratos de entrada al dominio. |
 | 021 | Pruebas de integración con Testcontainers (SQL Server real) | EF InMemory / SQLite | InMemory no aplica constraints, transacciones ni rowversion, y SQLite no soporta HiLo ni la columna calculada: probarían otra base. El contenedor se comparte por ensamblado y se aísla por datos. |
+| 022 | Controllers con `[ApiController]` | Minimal APIs | El mandato pide ASP.NET Core Web API; los controllers agrupan endpoints, filtros y metadatos OpenAPI de forma conocida por cualquier equipo. Los handlers ya son delgados, así que el costo es mínimo. |
+| 023 | Inactivación como `POST /{id}/inactivacion` con motivo | `DELETE` lógico / `PATCH` de estado | `DELETE` sugiere borrar y no admite cuerpo de forma estándar; el motivo es obligatorio. El sub-recurso expresa la intención y permite agregar otros cambios de estado sin romper el contrato. |
+| 024 | Concurrencia con `ETag` / `If-Match` (412) y `If-None-Match` (304) | Versión en el cuerpo | Es el mecanismo estándar de HTTP: clientes, proxies y herramientas lo entienden. El 304 ahorra transferencia en consultas repetidas. |
+| 025 | Reintento idempotente responde 201 + `Idempotent-Replayed: true` | 200 / 409 | El cliente recibe la misma respuesta que en el primer intento (semántica del draft IETF Idempotency-Key) y puede distinguir el reintento si le interesa. |
+| 026 | Versionado por prefijo de ruta `api/v1` | Asp.Versioning (header / query) | Hay una sola versión: el prefijo es visible, cacheable y no agrega dependencias. Se adopta la librería si aparece una v2 que conviva con la v1. |
 | 018 | Cadena de conexión en user-secrets / variables de entorno | `appsettings.json` | Ningún secreto en el repositorio. |
 ---
 
@@ -233,3 +249,4 @@ Actualizar al cerrar cada fase (y antes de cada merge a `main`).
 | 2026-11-23 | Fase 0 cerrada: build común, CPM, `.editorconfig`, `.env.example`, limpieza de plantilla, pruebas de arquitectura. |
 | 2026-11-23 | Fase 2 cerrada: dominio rico, política de cobertura, persistencia EF Core, migración inicial, seed y script SQL. 51 pruebas en verde. |
 | 2026-11-23 | Fase 3 cerrada: CQRS con MediatR, validación en pipeline, Result pattern, idempotencia, concurrencia, listado keyset. 129 pruebas en verde (incluye integración con SQL Server real). |
+| 2026-11-23 | Fase 4 cerrada: API REST completa con ProblemDetails, idempotencia, ETag/If-Match, Correlation-Id, catálogos y Scalar. 157 pruebas en verde (28 HTTP). |
