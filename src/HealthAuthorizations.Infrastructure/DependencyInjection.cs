@@ -27,6 +27,7 @@ public static class DependencyInjection
 
         services.TryAddSingleton(TimeProvider.System);
         services.AddScoped<AuditableEntityInterceptor>();
+        services.AddSingleton<OutboxInterceptor>();
 
         services.AddDbContext<ApplicationDbContext>((serviceProvider, options) =>
             options
@@ -34,7 +35,9 @@ public static class DependencyInjection
                     // Reintentos ante fallos transitorios (red, failover, throttling).
                     .EnableRetryOnFailure(maxRetryCount: 5, maxRetryDelay: TimeSpan.FromSeconds(10), errorNumbersToAdd: null)
                     .CommandTimeout(timeoutComando))
-                .AddInterceptors(serviceProvider.GetRequiredService<AuditableEntityInterceptor>()));
+                .AddInterceptors(
+                    serviceProvider.GetRequiredService<AuditableEntityInterceptor>(),
+                    serviceProvider.GetRequiredService<OutboxInterceptor>()));
 
         services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<ApplicationDbContext>());
 

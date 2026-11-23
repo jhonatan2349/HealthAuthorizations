@@ -3,6 +3,7 @@ using HealthAuthorizations.Application.Common.Interfaces;
 using HealthAuthorizations.Domain.Autorizaciones;
 using HealthAuthorizations.Domain.Catalogos;
 using HealthAuthorizations.Domain.Common;
+using HealthAuthorizations.Infrastructure.Persistence.Outbox;
 using HealthAuthorizations.Infrastructure.Persistence.Seed;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -29,6 +30,9 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<TipoPrestador> TiposPrestadores => Set<TipoPrestador>();
 
     public DbSet<TipoServicio> TiposServicios => Set<TipoServicio>();
+
+    /// <summary>Solo para la infraestructura de mensajería; no se expone a Application.</summary>
+    public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
