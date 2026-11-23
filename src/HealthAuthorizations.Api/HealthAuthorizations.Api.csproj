@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.15" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\HealthAuthorizations.Application\HealthAuthorizations.Application.csproj" />
+    <ProjectReference Include="..\HealthAuthorizations.Infrastructure\HealthAuthorizations.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>
