@@ -1,0 +1,30 @@
+<Project>
+
+  <!-- Central Package Management: una única versión por paquete en toda la solución.
+       Los .csproj declaran <PackageReference Include="..." /> sin versión. -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- Paquetes de .NET 10 alineados a la misma versión de parche. -->
+    <DotNetVersion>10.0.15</DotNetVersion>
+  </PropertyGroup>
+
+  <ItemGroup Label="ASP.NET Core">
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="$(DotNetVersion)" />
+  </ItemGroup>
+
+  <ItemGroup Label="Persistencia">
+    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="$(DotNetVersion)" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.SqlServer" Version="$(DotNetVersion)" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="$(DotNetVersion)" />
+  </ItemGroup>
+
+  <ItemGroup Label="Application">
+    <PackageVersion Include="Mapster" Version="10.0.14" />
+    <PackageVersion Include="Mapster.DependencyInjection" Version="10.0.14" />
+  </ItemGroup>
+
+</Project>
