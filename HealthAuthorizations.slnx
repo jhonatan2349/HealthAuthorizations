@@ -7,6 +7,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/HealthAuthorizations.ArchitectureTests/HealthAuthorizations.ArchitectureTests.csproj" />
+    <Project Path="tests/HealthAuthorizations.UnitTests/HealthAuthorizations.UnitTests.csproj" />
   </Folder>
   <Folder Name="/Solution Items/">
     <File Path=".editorconfig" />
