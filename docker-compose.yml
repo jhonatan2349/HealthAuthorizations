@@ -21,6 +21,40 @@ services:
       start_period: 60s
     restart: unless-stopped
 
+  # Broker de eventos. Consola de administración: http://localhost:15672
+  rabbitmq:
+    image: rabbitmq:4.1-management-alpine
+    container_name: healthauth-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: "${RABBITMQ_USER}"
+      RABBITMQ_DEFAULT_PASS: "${RABBITMQ_PASSWORD}"
+    ports:
+      - "127.0.0.1:5672:5672"     # AMQP
+      - "127.0.0.1:15672:15672"   # consola web
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+
+  # Caché distribuida (L2 de HybridCache). Solo en localhost; en ambientes reales con contraseña y TLS.
+  redis:
+    image: redis:7.4-alpine
+    container_name: healthauth-redis
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
   # Visor local de OpenTelemetry (trazas, métricas y logs). UI: http://localhost:18888
   aspire-dashboard:
     image: mcr.microsoft.com/dotnet/aspire-dashboard:9.5
@@ -35,3 +69,4 @@ services:
 
 volumes:
   sqlserver_data:
+  rabbitmq_data:
