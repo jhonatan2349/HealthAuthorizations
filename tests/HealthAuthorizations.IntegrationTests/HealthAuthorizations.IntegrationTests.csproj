@@ -1,10 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="Testcontainers.MsSql" />
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\HealthAuthorizations.Api\HealthAuthorizations.Api.csproj" />
     <ProjectReference Include="..\..\src\HealthAuthorizations.Application\HealthAuthorizations.Application.csproj" />
     <ProjectReference Include="..\..\src\HealthAuthorizations.Infrastructure\HealthAuthorizations.Infrastructure.csproj" />
   </ItemGroup>
