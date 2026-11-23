@@ -20,6 +20,8 @@ internal static class ProblemDetailsSetup
                 var (title, code) = context.ProblemDetails.Status switch
                 {
                     StatusCodes.Status400BadRequest => (ProblemTitles.Validacion, ProblemTitles.CodigoValidacion),
+                    StatusCodes.Status401Unauthorized => ("No autenticado", "Autenticacion.Requerida"),
+                    StatusCodes.Status403Forbidden => ("Acceso denegado", "Autorizacion.Denegada"),
                     StatusCodes.Status404NotFound => (ProblemTitles.NoEncontrado, "Recurso.NoEncontrado"),
                     _ => (context.ProblemDetails.Title, "Http.Error"),
                 };

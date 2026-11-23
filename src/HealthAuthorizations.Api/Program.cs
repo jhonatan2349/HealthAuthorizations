@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 using HealthAuthorizations.Api.ErrorHandling;
 using HealthAuthorizations.Api.Middleware;
 using HealthAuthorizations.Api.OpenApi;
+using HealthAuthorizations.Api.Security;
 using HealthAuthorizations.Api.Services;
 using HealthAuthorizations.Application;
 using HealthAuthorizations.Application.Common.Interfaces;
@@ -15,6 +16,7 @@ builder.Services
 
 builder.Services.AddApiDocumentation();
 builder.Services.AddApiProblemDetails();
+builder.Services.AddApiSecurity();
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
@@ -36,6 +38,7 @@ if (!app.Environment.IsProduction())
 
 app.UseHttpsRedirection();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

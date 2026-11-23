@@ -1,3 +1,5 @@
+using System.Net.Http.Headers;
+using HealthAuthorizations.Api.Security;
 using HealthAuthorizations.Application;
 using HealthAuthorizations.Application.Common.Interfaces;
 using HealthAuthorizations.Domain.Catalogos;
@@ -55,8 +57,23 @@ public sealed class DatabaseFixture : IAsyncLifetime
         _api = new ApiFactory(_container.GetConnectionString());
     }
 
-    /// <summary>Cliente HTTP contra la API real en memoria (pipeline completo: middleware, MVC, filtros).</summary>
-    public HttpClient CreateClient() => (_api ?? throw new InvalidOperationException("Fixture no inicializado.")).CreateClient();
+    public const string SujetoApi = "operador-pruebas";
+
+    private ApiFactory Api => _api ?? throw new InvalidOperationException("Fixture no inicializado.");
+
+    /// <summary>Cliente HTTP autenticado contra la API real en memoria (pipeline completo: middleware, MVC, filtros).</summary>
+    public HttpClient CreateClient(string rol = Roles.Operador)
+    {
+        var token = Api.Services.GetRequiredService<JwtTokenIssuer>().Emitir(SujetoApi, "Usuario de pruebas", [rol]);
+        var client = Api.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token.AccessToken);
+        return client;
+    }
+
+    public HttpClient CreateAnonymousClient() => Api.CreateClient();
+
+    /// <summary>API con configuración distinta (p. ej. límites de tasa bajos) sobre la misma base de datos.</summary>
+    internal ApiFactory CreateApi(IReadOnlyDictionary<string, string?> ajustes) => new(_container.GetConnectionString(), ajustes);
 
     public async ValueTask DisposeAsync()
     {

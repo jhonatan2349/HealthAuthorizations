@@ -28,10 +28,11 @@ internal static class OpenApiSetup
     /// <summary>Expone el documento OpenAPI (/openapi/v1.json) y la interfaz Scalar (/scalar).</summary>
     public static WebApplication MapApiDocumentation(this WebApplication app)
     {
-        app.MapOpenApi();
+        app.MapOpenApi().AllowAnonymous();
         app.MapScalarApiReference(options => options
-            .WithTitle("HealthAuthorizations API")
-            .WithDefaultHttpClient(ScalarTarget.Shell, ScalarClient.Curl));
+                .WithTitle("HealthAuthorizations API")
+                .WithDefaultHttpClient(ScalarTarget.Shell, ScalarClient.Curl))
+            .AllowAnonymous();
         return app;
     }
 }

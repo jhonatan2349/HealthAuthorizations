@@ -18,7 +18,12 @@ internal static class SecuritySetup
             .Validate(o => o.EsValida, $"Configuración Jwt inválida: Issuer, Audience y Authority o SigningKey (mínimo {JwtOptions.MinLongitudClaveBytes} bytes) son obligatorios.")
             .ValidateOnStart();
 
-        services.AddOptions<EmisorDemoOptions>().BindConfiguration(EmisorDemoOptions.SectionName);
+        services.AddOptions<EmisorDemoOptions>()
+            .BindConfiguration(EmisorDemoOptions.SectionName)
+            .Validate<IHostEnvironment>(
+                (o, env) => !(o.Habilitado && env.IsProduction()),
+                "El emisor de tokens de demo no puede habilitarse en producción.")
+            .ValidateOnStart();
         services.AddSingleton<JwtTokenIssuer>();
 
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
