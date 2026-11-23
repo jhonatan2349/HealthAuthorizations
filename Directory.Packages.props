@@ -1,0 +1,37 @@
+<Project>
+
+  <!-- Central Package Management: una única versión por paquete en toda la solución.
+       Los .csproj declaran <PackageReference Include="..." /> sin versión. -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- Paquetes de .NET 10 alineados a la misma versión de parche. -->
+    <DotNetVersion>10.0.15</DotNetVersion>
+  </PropertyGroup>
+
+  <ItemGroup Label="ASP.NET Core">
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="$(DotNetVersion)" />
+  </ItemGroup>
+
+  <ItemGroup Label="Persistencia">
+    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="$(DotNetVersion)" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.SqlServer" Version="$(DotNetVersion)" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="$(DotNetVersion)" />
+  </ItemGroup>
+
+  <ItemGroup Label="Pruebas">
+    <PackageVersion Include="xunit.v3" Version="4.0.3" />
+    <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.12.0" />
+    <PackageVersion Include="Shouldly" Version="4.3.0" />
+    <PackageVersion Include="NetArchTest.Rules" Version="1.3.2" />
+  </ItemGroup>
+
+  <ItemGroup Label="Application">
+    <PackageVersion Include="Mapster" Version="10.0.14" />
+    <PackageVersion Include="Mapster.DependencyInjection" Version="10.0.14" />
+  </ItemGroup>
+
+</Project>

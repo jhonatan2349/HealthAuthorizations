@@ -5,4 +5,15 @@
     <Project Path="src/HealthAuthorizations.Domain/HealthAuthorizations.Domain.csproj" />
     <Project Path="src/HealthAuthorizations.Infrastructure/HealthAuthorizations.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/HealthAuthorizations.ArchitectureTests/HealthAuthorizations.ArchitectureTests.csproj" />
+  </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+    <File Path="docker-compose.yml" />
+    <File Path="global.json" />
+    <File Path="STATUS.md" />
+  </Folder>
 </Solution>
