@@ -18,7 +18,7 @@ Actualizar al cerrar cada fase (y antes de cada merge a `main`).
 | 4 | API REST (endpoints, ProblemDetails, idempotencia, Scalar) | `feature/fase-4-api` | ✅ |
 | 5 | Seguridad (JWT, políticas, rate limiting) | `feature/fase-5-seguridad` | ✅ |
 | 6 | Observabilidad y resiliencia (logs, OTel, health checks) | `feature/fase-6-observabilidad` | ✅ |
-| 7 | Integración (Outbox + RabbitMQ, caché Redis) | `feature/fase-7-integracion` | ⏳ |
+| 7 | Integración (Outbox + RabbitMQ, caché Redis) | `feature/fase-7-integracion` | ✅ |
 | 8 | Pruebas y calidad (≥80 % cobertura, Sonar) | `feature/fase-8-pruebas` | ⏳ |
 | 9 | Contenerización (Dockerfile, Compose completo) | `feature/fase-9-docker` | ⏳ |
 | 10 | CI/CD Azure DevOps + GitOps (K8s, Kustomize/Argo CD) | `feature/fase-10-cicd` | ⏳ |
@@ -165,11 +165,24 @@ Actualizar al cerrar cada fase (y antes de cada merge a `main`).
 - [ ] `preStop` + `terminationGracePeriodSeconds` y probes en los manifiestos → Fase 10
 - [ ] Panel/alertas (p. ej. Grafana) sobre las métricas → fuera de alcance; se documenta qué alertar
 
-### Fase 7 — Integración ⏳
-- [ ] Transactional Outbox: los eventos se guardan en la misma transacción que la autorización
-- [ ] Publicador en segundo plano (`BackgroundService`) → RabbitMQ, con reintentos
-- [ ] Contratos de eventos versionados; nuevos consumidores sin tocar el core
-- [ ] Redis como caché distribuida para catálogos (`HybridCache`)
+### Fase 7 — Integración ✅
+- [x] Transactional Outbox: `OutboxInterceptor` guarda los eventos en el mismo `SaveChanges` que el cambio (probado: sin evento si la operación falla)
+- [x] Eventos de integración versionados (`autorizacion.creada.v1`, `.actualizada.v1`, `.estado-cambiado.v1`), separados de los eventos de dominio
+- [x] Sin PII ni datos clínicos en los eventos (sin nombres, diagnóstico ni motivo)
+- [x] Número del evento calculado con la misma regla que la columna (`Autorizacion.FormatearNumero`, probado contra la BD)
+- [x] `OutboxProcessor` (BackgroundService) + `OutboxDispatcher` con lease `READPAST`: varias réplicas sin duplicar (probado con 3 en paralelo)
+- [x] RabbitMQ: exchange topic durable, mensajes persistentes, publisher confirms, `MessageId` estable, propagación de `traceparent`
+- [x] Reintentos con backoff exponencial (2 s → 5 min) y límite para revisión manual; métricas publicados/fallidos/agotados
+- [x] Broker caído: la API sigue operando, `/health/ready` informa Degraded (200) y el outbox acumula
+- [x] Mensajería deshabilitable por configuración sin perder eventos
+- [x] HybridCache para catálogos simples: L1 memoria (2 min) + Redis L2 compartido (10 min) si se configura; protección contra estampida
+- [x] Afiliados fuera de caché (PII); validación de referencias al crear siempre contra la BD
+- [x] RabbitMQ y Redis en docker-compose; credenciales en `.env` / user-secrets
+- [x] Contrato para consumidores en [docs/eventos-integracion.md](docs/eventos-integracion.md)
+- [x] 9 pruebas de integración nuevas (incluye RabbitMQ real con Testcontainers) → 203 en total, 3 corridas seguidas en verde
+- [x] Prueba inestable de la Fase 5 (413 con Kestrel bajo carga) detectada y corregida con `Expect: 100-continue`
+- ➖ MongoDB / SignalR: sin un caso de uso que lo justifique (los consumidores en tiempo real pueden suscribirse a RabbitMQ)
+- [ ] Consumidor de ejemplo (worker) → opcional, si queda tiempo para la demo
 
 ### Fase 8 — Pruebas y calidad ⏳
 - [ ] Unitarias: dominio (invariantes, cálculo 70/30, redondeo), validadores, handlers
@@ -247,7 +260,7 @@ Actualizar al cerrar cada fase (y antes de cada merge a `main`).
 | 007 | Distribución de montos con Strategy (`IPoliticaCobertura`) | 70/30 fijo en el código | Cambiar la regla = otra implementación o configuración, sin tocar el agregado ni los casos de uso. El porcentaje se guarda por detalle para que el histórico no cambie. |
 | 008 | Idempotencia: `ClaveIdempotencia` en la autorización con índice único filtrado | Tabla de idempotencia aparte / solo validar duplicados | La clave se guarda en la misma transacción que la autorización: dos solicitudes simultáneas iguales no pueden crear dos registros. El header `Idempotency-Key` se agrega en la Fase 4. |
 | 009 | Paginación keyset con cursor opaco, sin total | Offset (`Skip/Take`) + `COUNT(*)` | OFFSET lee y descarta todas las filas previas y el COUNT recorre la tabla: ambos se degradan con el volumen. Keyset cuesta lo mismo en cualquier página; el cursor opaco permite cambiar el orden sin romper el contrato. |
-| 010 | _Mensajería — pendiente_ | Publicar directo al broker | Outbox: sin eventos perdidos ni fantasmas si falla la BD o el broker. |
+| 010 | Transactional Outbox + RabbitMQ (al menos una vez) | Publicar directo al broker tras guardar | Publicar fuera de la transacción pierde eventos (cae el broker) o crea fantasmas (falla la BD). El outbox lo resuelve con la transacción que ya existe; el costo es entrega al menos una vez, que los consumidores manejan con `MessageId`. |
 | 011 | xUnit v3 + Microsoft.Testing.Platform + Shouldly | VSTest + FluentAssertions | MTP es el runner nativo de .NET 10. FluentAssertions v8 pasó a licencia comercial; Shouldly es MIT. Cobertura con `Microsoft.Testing.Extensions.CodeCoverage` (Cobertura → SonarQube). |
 | 012 | Warnings como errores + analizadores | Solo convenciones | La calidad se verifica en cada build, no solo en revisión; apoya la meta de “0 errores bloqueantes” de Sonar. |
 | 013 | Id `long` con HiLo para `Autorizacion` | Identity / GUID v7 | El Id se conoce antes del INSERT (los eventos del Outbox lo necesitan) sin un viaje a la BD por fila. Los GUID v7 se fragmentan en SQL Server, que ordena `uniqueidentifier` por los últimos bytes. |
@@ -272,6 +285,12 @@ Actualizar al cerrar cada fase (y antes de cada merge a `main`).
 | 033 | Métricas y trazas de negocio con APIs del BCL en Application | OpenTelemetry en Application | `ActivitySource` y `Meter` son .NET estándar; Application queda libre de frameworks y la regla de arquitectura se mantiene. |
 | 034 | Sonda de SQL propia, sin reintentos | `AddDbContextCheck` (usa la estrategia de reintentos de EF) | Una sonda debe responder en segundos; con reintentos de EF podría tardar más que el timeout del probe y dar falsos negativos. |
 | 035 | Liveness sin dependencias | Liveness que consulta la BD | Si la BD cae, reiniciar pods no la arregla y agrava el problema; readiness saca el pod del balanceo mientras tanto. |
+| 036 | RabbitMQ.Client directo | MassTransit / Wolverine | MassTransit v9 pasó a licencia comercial; el caso (publicar desde un outbox) cabe en ~150 líneas explicables y probadas. Si aparecen sagas o muchos consumidores, se reevalúa. |
+| 037 | Lease con `UPDATE … READPAST` y backoff en el mismo campo | Transacción larga con bloqueo / elección de líder | No mantiene transacciones abiertas mientras publica y escala horizontalmente sin coordinación extra. |
+| 038 | Eventos sin PII, consumidores consultan la API | Evento con todos los datos (event-carried state) | Los mensajes se replican y retienen en sistemas fuera de nuestro control; los datos de salud no deben viajar ahí. |
+| 039 | Broker como dependencia degradada, no de readiness | Readiness falla si cae RabbitMQ | El outbox desacopla la disponibilidad: sacar pods por el broker convertiría una caída parcial en total. |
+| 040 | HybridCache (L1 + Redis L2) solo para catálogos | Redis para todo / sin caché | Los catálogos son pequeños, muy leídos y casi estáticos. HybridCache evita la estampida y sigue funcionando sin Redis. Las autorizaciones cambian y requieren consistencia: no se cachean. |
+| 041 | Sin MongoDB ni SignalR | Usarlos por estar en la lista | El mandato pide seleccionar con criterio: no hay datos documentales ni clientes web en tiempo real. |
 | 018 | Cadena de conexión en user-secrets / variables de entorno | `appsettings.json` | Ningún secreto en el repositorio. |
 ---
 
@@ -286,3 +305,4 @@ Actualizar al cerrar cada fase (y antes de cada merge a `main`).
 | 2026-11-23 | Fase 4 cerrada: API REST completa con ProblemDetails, idempotencia, ETag/If-Match, Correlation-Id, catálogos y Scalar. 157 pruebas en verde (28 HTTP). |
 | 2026-11-23 | Fase 5 cerrada: JWT con políticas por rol, emisor de demo controlado, rate limiting, headers de seguridad, límites y CORS. 177 pruebas en verde. |
 | 2026-11-23 | Fase 6 cerrada: logs JSON con CorrelationId, OpenTelemetry (trazas, métricas de negocio, logs), Aspire Dashboard, sondas live/ready, timeouts y apagado ordenado. 187 pruebas en verde. |
+| 2026-11-23 | Fase 7 cerrada: Transactional Outbox con RabbitMQ (lease multi-réplica, confirms, backoff), eventos versionados sin PII, HybridCache + Redis, docs para consumidores. 203 pruebas en verde. |
