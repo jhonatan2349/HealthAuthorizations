@@ -47,6 +47,7 @@ public static class DependencyInjection
             .AddCheck("sqlserver", new SqlServerHealthCheck(connectionString), tags: [HealthCheckTags.Ready], timeout: TimeSpan.FromSeconds(5));
 
         AddMensajeria(services, configuration, healthChecks);
+        AddCache(services, configuration);
 
         return services;
     }
@@ -76,5 +77,24 @@ public static class DependencyInjection
 
         healthChecks.AddCheck<RabbitMqHealthCheck>(
             "rabbitmq", HealthStatus.Degraded, tags: [HealthCheckTags.Ready], timeout: TimeSpan.FromSeconds(5));
+    }
+
+    /// <summary>
+    /// HybridCache: memoria local (L1) y, si existe ConnectionStrings:Redis, Redis compartido entre réplicas (L2).
+    /// Evita además la "estampida": solicitudes simultáneas por la misma clave hacen una sola consulta a la BD.
+    /// </summary>
+    private static void AddCache(IServiceCollection services, IConfiguration configuration)
+    {
+        var redis = configuration.GetConnectionString("Redis");
+        if (!string.IsNullOrWhiteSpace(redis))
+        {
+            services.AddStackExchangeRedisCache(options =>
+            {
+                options.Configuration = redis;
+                options.InstanceName = "healthauth:";
+            });
+        }
+
+        services.AddHybridCache();
     }
 }
