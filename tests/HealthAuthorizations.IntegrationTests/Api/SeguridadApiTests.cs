@@ -227,9 +227,16 @@ public sealed class SeguridadApiTests(DatabaseFixture fixture)
         using var client = api.CreateClient();
         client.DefaultRequestHeaders.Authorization = new(
             "Bearer", api.Services.GetRequiredService<JwtTokenIssuer>().Emitir("kestrel", "K", [Roles.Operador]).AccessToken);
-        using var contenido = new StringContent($"{{\"diagnostico\":\"{new string('x', 2 * 1024 * 1024)}\"}}", Encoding.UTF8, "application/json");
+        using var request = new HttpRequestMessage(HttpMethod.Post, Base)
+        {
+            Content = new StringContent($"{{\"diagnostico\":\"{new string('x', 2 * 1024 * 1024)}\"}}", Encoding.UTF8, "application/json"),
+        };
 
-        using var response = await client.PostAsync(Base, contenido, Ct);
+        // Con 100-continue el cliente espera la respuesta antes de enviar el cuerpo: Kestrel rechaza por Content-Length
+        // sin la carrera de cerrar la conexión mientras el cliente aún escribe (connection reset intermitente).
+        request.Headers.ExpectContinue = true;
+
+        using var response = await client.SendAsync(request, Ct);
 
         response.StatusCode.ShouldBe(HttpStatusCode.RequestEntityTooLarge);
     }
