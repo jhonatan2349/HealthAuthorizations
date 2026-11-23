@@ -1,0 +1,227 @@
+# Pipeline de Azure DevOps — HealthAuthorizations API
+#
+#   CI (cada PR y cada push a main)
+#     restore → build (warnings = errores) → paquetes vulnerables → migraciones al día
+#     → pruebas unitarias, de arquitectura e integración (SQL Server y RabbitMQ con Testcontainers)
+#     → cobertura consolidada (mínimo 80 %) → SonarQube (quality gate: duplicación < 3 %, 0 bloqueantes)
+#   Imágenes (cada PR y cada push a main)
+#     build de api + migrator → escaneo Trivy (falla con HIGH/CRITICAL corregibles)
+#     → push al registro solo desde main, etiquetadas con el número de build y el commit
+#
+# Requisitos en el proyecto de Azure DevOps:
+#   - Extensión "SonarQube" y una service connection a SonarQube (nombre en el parámetro sonarServiceConnection).
+#   - Service connection de tipo Docker Registry al registro (p. ej. Azure Container Registry).
+#   - Agente Linux con Docker (los hospedados ubuntu-latest lo traen): lo necesitan Testcontainers y el build de imágenes.
+
+trigger:
+  branches:
+    include: [main]
+  paths:
+    exclude: ['*.md', 'docs/*']
+
+pr:
+  branches:
+    include: [main]
+
+parameters:
+  - name: ejecutarSonar
+    displayName: Ejecutar análisis de SonarQube
+    type: boolean
+    default: true
+  - name: sonarServiceConnection
+    type: string
+    default: SonarQube
+  - name: registryServiceConnection
+    type: string
+    default: acr-healthauthorizations
+
+variables:
+  buildConfiguration: Release
+  registro: healthauthorizations.azurecr.io
+  imagenApi: healthauthorizations-api
+  imagenMigrador: healthauthorizations-migrator
+  coberturaMinima: 80
+  NUGET_PACKAGES: $(Pipeline.Workspace)/.nuget/packages
+  DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+  DOTNET_NOLOGO: 'true'
+  resultadosPruebas: $(Agent.TempDirectory)/TestResults
+  reporteCobertura: $(Agent.TempDirectory)/coverage
+
+stages:
+  # ---------------------------------------------------------------------------------------------------
+  - stage: CI
+    displayName: Build, pruebas y calidad
+    jobs:
+      - job: BuildTest
+        displayName: Build y pruebas
+        pool:
+          vmImage: ubuntu-latest
+        timeoutInMinutes: 30
+        steps:
+          - checkout: self
+            fetchDepth: 0   # SonarQube usa el historial para detectar código nuevo
+
+          - task: UseDotNet@2
+            displayName: SDK de .NET (global.json)
+            inputs:
+              useGlobalJson: true
+
+          - task: Cache@2
+            displayName: Caché de NuGet
+            inputs:
+              key: 'nuget | "$(Agent.OS)" | Directory.Packages.props | **/*.csproj'
+              restoreKeys: 'nuget | "$(Agent.OS)"'
+              path: $(NUGET_PACKAGES)
+
+          - script: dotnet tool restore
+            displayName: Herramientas locales (dotnet-ef, reportgenerator)
+
+          - ${{ if parameters.ejecutarSonar }}:
+              - task: SonarQubePrepare@7
+                displayName: Preparar SonarQube
+                inputs:
+                  SonarQube: ${{ parameters.sonarServiceConnection }}
+                  scannerMode: dotnet
+                  projectKey: healthauthorizations-api
+                  projectName: HealthAuthorizations API
+                  extraProperties: |
+                    sonar.coverageReportPaths=$(reporteCobertura)/SonarQube.xml
+                    sonar.exclusions=**/Migrations/**,**/bin/**,**/obj/**
+                    sonar.cpd.exclusions=**/Migrations/**
+                    sonar.coverage.exclusions=**/Migrations/**,tests/**
+                    sonar.qualitygate.wait=true
+
+          - script: dotnet restore
+            displayName: Restore
+
+          - script: dotnet build -c $(buildConfiguration) --no-restore
+            displayName: Build (warnings como errores)
+
+          - script: |
+              set -euo pipefail
+              dotnet list package --vulnerable --include-transitive | tee vulnerables.txt
+              if grep -q "has the following vulnerable packages" vulnerables.txt; then
+                echo "##vso[task.logissue type=error]Hay paquetes NuGet con vulnerabilidades conocidas."
+                exit 1
+              fi
+            displayName: Paquetes vulnerables
+
+          - script: |
+              set -euo pipefail
+              dotnet ef migrations has-pending-model-changes --no-build --configuration $(buildConfiguration) \
+                -p src/HealthAuthorizations.Infrastructure -s src/HealthAuthorizations.Api
+              dotnet ef migrations script --idempotent --no-build --configuration $(buildConfiguration) \
+                -p src/HealthAuthorizations.Infrastructure -s src/HealthAuthorizations.Api \
+                -o $(Agent.TempDirectory)/migrations.sql
+              if ! diff -q $(Agent.TempDirectory)/migrations.sql database/migrations.sql; then
+                echo "##vso[task.logissue type=error]database/migrations.sql no está al día: regenerarlo (ver database/README.md)."
+                exit 1
+              fi
+            displayName: Migraciones al día con el modelo
+            env:
+              # dotnet-ef construye el host de la API; no se abre ninguna conexión.
+              ConnectionStrings__Default: Server=marcador-de-ci;Database=HealthAuthorizations
+
+          - script: >
+              dotnet test -c $(buildConfiguration) --no-build
+              --results-directory $(resultadosPruebas)
+              --report-xunit-trx
+              --coverage --coverage-output-format cobertura
+            displayName: Pruebas (unitarias, arquitectura, integración)
+
+          - task: PublishTestResults@2
+            displayName: Publicar resultados de pruebas
+            condition: succeededOrFailed()
+            inputs:
+              testResultsFormat: VSTest
+              testResultsFiles: $(resultadosPruebas)/**/*.trx
+              mergeTestResults: true
+
+          - script: |
+              set -euo pipefail
+              dotnet reportgenerator \
+                "-reports:$(resultadosPruebas)/**/*.cobertura.xml" \
+                "-targetdir:$(reporteCobertura)" \
+                "-reporttypes:Cobertura;SonarQube;TextSummary;HtmlInline_AzurePipelines" \
+                "-assemblyfilters:+HealthAuthorizations.*;-*Tests*" \
+                "-classfilters:-HealthAuthorizations.Infrastructure.Persistence.Migrations.*"
+              cat $(reporteCobertura)/Summary.txt
+              linea=$(grep -m1 "Line coverage" $(reporteCobertura)/Summary.txt | grep -oE "[0-9]+(\.[0-9]+)?")
+              if awk -v c="$linea" -v m="$(coberturaMinima)" 'BEGIN { exit !(c < m) }'; then
+                echo "##vso[task.logissue type=error]Cobertura de líneas $linea % menor que el mínimo $(coberturaMinima) %."
+                exit 1
+              fi
+              echo "Cobertura de líneas: $linea % (mínimo $(coberturaMinima) %)"
+            displayName: Cobertura consolidada (mínimo 80 %)
+
+          - task: PublishCodeCoverageResults@2
+            displayName: Publicar cobertura
+            inputs:
+              summaryFileLocation: $(reporteCobertura)/Cobertura.xml
+
+          - ${{ if parameters.ejecutarSonar }}:
+              - task: SonarQubeAnalyze@7
+                displayName: Análisis de SonarQube (espera el quality gate)
+              - task: SonarQubePublish@7
+                displayName: Publicar resultado de SonarQube
+                inputs:
+                  pollingTimeoutSec: '300'
+
+          - publish: database/migrations.sql
+            displayName: Artefacto — script de migraciones para el DBA
+            artifact: migraciones-sql
+
+  # ---------------------------------------------------------------------------------------------------
+  - stage: Imagenes
+    displayName: Imágenes de contenedor
+    dependsOn: CI
+    jobs:
+      - job: BuildScanPush
+        displayName: Build, escaneo y publicación
+        pool:
+          vmImage: ubuntu-latest
+        timeoutInMinutes: 30
+        variables:
+          DOCKER_BUILDKIT: '1'
+        steps:
+          - checkout: self
+
+          - script: |
+              set -euo pipefail
+              commit=$(echo "$(Build.SourceVersion)" | cut -c1-7)
+              echo "##vso[task.setvariable variable=etiqueta]$(Build.BuildId)-$commit"
+            displayName: Etiqueta de la imagen (build + commit)
+
+          - script: |
+              set -euo pipefail
+              for target in api migrator; do
+                nombre=$([ "$target" = api ] && echo $(imagenApi) || echo $(imagenMigrador))
+                docker build . --target $target \
+                  --build-arg VERSION=$(etiqueta) --build-arg REVISION=$(Build.SourceVersion) \
+                  -t $(registro)/$nombre:$(etiqueta)
+              done
+            displayName: Build de las imágenes api y migrator
+
+          - script: |
+              set -euo pipefail
+              for nombre in $(imagenApi) $(imagenMigrador); do
+                docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.67.2 \
+                  image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 \
+                  $(registro)/$nombre:$(etiqueta)
+              done
+            displayName: Escaneo de vulnerabilidades (Trivy)
+
+          - task: Docker@2
+            displayName: Login al registro
+            condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+            inputs:
+              command: login
+              containerRegistry: ${{ parameters.registryServiceConnection }}
+
+          - script: |
+              set -euo pipefail
+              for nombre in $(imagenApi) $(imagenMigrador); do
+                docker push $(registro)/$nombre:$(etiqueta)
+              done
+            displayName: Push al registro (solo main)
+            condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
