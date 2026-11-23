@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Testcontainers.MsSql;
+using Testcontainers.RabbitMq;
 
 [assembly: AssemblyFixture(typeof(HealthAuthorizations.IntegrationTests.Infrastructure.DatabaseFixture))]
 
@@ -24,6 +25,7 @@ public sealed class DatabaseFixture : IAsyncLifetime
     public const string UsuarioPruebas = "usuario-pruebas";
 
     private readonly MsSqlContainer _container = new MsSqlBuilder("mcr.microsoft.com/mssql/server:2022-latest").Build();
+    private readonly RabbitMqContainer _rabbit = new RabbitMqBuilder("rabbitmq:4.1-management-alpine").Build();
 
     private ServiceProvider? _services;
     private ApiFactory? _api;
@@ -33,7 +35,7 @@ public sealed class DatabaseFixture : IAsyncLifetime
 
     public async ValueTask InitializeAsync()
     {
-        await _container.StartAsync();
+        await Task.WhenAll(_container.StartAsync(), _rabbit.StartAsync());
 
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -72,6 +74,9 @@ public sealed class DatabaseFixture : IAsyncLifetime
 
     public HttpClient CreateAnonymousClient() => Api.CreateClient();
 
+    /// <summary>Cadena AMQP del broker efímero (amqp://usuario:clave@host:puerto/).</summary>
+    public Uri RabbitMqUri => new(_rabbit.GetConnectionString());
+
     /// <summary>API con configuración distinta (p. ej. límites de tasa bajos) sobre la misma base de datos.</summary>
     internal ApiFactory CreateApi(IReadOnlyDictionary<string, string?> ajustes, string entorno = "Testing") =>
         new(_container.GetConnectionString(), ajustes, entorno);
@@ -89,6 +94,7 @@ public sealed class DatabaseFixture : IAsyncLifetime
         }
 
         await _container.DisposeAsync();
+        await _rabbit.DisposeAsync();
     }
 
     /// <summary>Envía la solicitud en su propio scope, como lo haría una petición HTTP.</summary>
