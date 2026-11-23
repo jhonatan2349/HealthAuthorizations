@@ -1,3 +1,24 @@
+# Entorno local completo:  docker compose up -d --build
+#   API ............ http://localhost:8080/scalar   (token: POST /api/v1/auth/token, usuarios demo abajo)
+#   RabbitMQ ....... http://localhost:15672
+#   Aspire (OTel) .. http://localhost:18888
+# Solo dependencias, para correr la API con "dotnet run":  docker compose up -d sqlserver rabbitmq redis aspire-dashboard
+# Las credenciales salen de .env (ver .env.example).
+
+# Cadena de conexión compartida por el migrador y la API.
+x-sql-connection: &sql-connection "Server=sqlserver;Database=HealthAuthorizations;User Id=sa;Password=${MSSQL_SA_PASSWORD};Encrypt=True;TrustServerCertificate=True"
+
+# Endurecimiento común de los contenedores propios: sistema de archivos de solo lectura, sin capacidades
+# de Linux ni escalamiento de privilegios. Las imágenes ya corren con un usuario no root.
+x-hardening: &hardening
+  read_only: true
+  tmpfs:
+    - /tmp
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+
 services:
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest
@@ -65,6 +86,64 @@ services:
     ports:
       - "127.0.0.1:18888:18888"   # interfaz web
       - "127.0.0.1:4317:18889"    # receptor OTLP/gRPC
+    restart: unless-stopped
+
+  # Aplica las migraciones pendientes y termina. La API no arranca hasta que este servicio finaliza con éxito.
+  migrator:
+    <<: *hardening
+    build:
+      context: .
+      target: migrator
+    image: healthauthorizations-migrator:local
+    container_name: healthauth-migrator
+    environment:
+      ConnectionStrings__Default: *sql-connection
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    <<: *hardening
+    build:
+      context: .
+      target: api
+    image: healthauthorizations-api:local
+    container_name: healthauth-api
+    environment:
+      # "Demo": no es Production, así se publican Scalar/OpenAPI y se permite el emisor de tokens de demostración.
+      ASPNETCORE_ENVIRONMENT: Demo
+      ConnectionStrings__Default: *sql-connection
+      ConnectionStrings__Redis: "redis:6379"
+      Jwt__SigningKey: "${JWT_SIGNING_KEY:?Defina JWT_SIGNING_KEY en .env (ver .env.example)}"
+      Mensajeria__Habilitada: "true"
+      Mensajeria__RabbitMq__Host: rabbitmq
+      Mensajeria__RabbitMq__Usuario: "${RABBITMQ_USER}"
+      Mensajeria__RabbitMq__Clave: "${RABBITMQ_PASSWORD}"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://aspire-dashboard:18889"
+      # Usuarios de demostración (solo este entorno local; el emisor está prohibido en Production).
+      Auth__EmisorDemo__Habilitado: "true"
+      Auth__EmisorDemo__Usuarios__0__Usuario: lector
+      Auth__EmisorDemo__Usuarios__0__Nombre: "Usuario de consulta (demo)"
+      Auth__EmisorDemo__Usuarios__0__Clave: Lector.Demo.2026
+      Auth__EmisorDemo__Usuarios__0__Roles__0: autorizaciones.lector
+      Auth__EmisorDemo__Usuarios__1__Usuario: operador
+      Auth__EmisorDemo__Usuarios__1__Nombre: "Operador de autorizaciones (demo)"
+      Auth__EmisorDemo__Usuarios__1__Clave: Operador.Demo.2026
+      Auth__EmisorDemo__Usuarios__1__Roles__0: autorizaciones.operador
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      migrator:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      aspire-dashboard:
+        condition: service_started
+    # Mayor que Resiliencia:TimeoutApagadoSegundos (25 s): deja terminar las solicitudes en curso tras SIGTERM.
+    stop_grace_period: 30s
     restart: unless-stopped
 
 volumes:
