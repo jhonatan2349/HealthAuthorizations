@@ -139,7 +139,7 @@ Para la demo del 80/20 en Docker: `Cobertura__PorcentajeArs: "80"` en el servici
 
 1. **Levantar todo**: `docker compose up -d --build`, mostrar `docker compose ps` (el `migrator` terminó con código 0).
 2. **Scalar** (http://localhost:8080/scalar):
-   - Obtener un token con `operador`.
+   - Obtener un token con `POST /api/v1/auth/token`, usuario `operador` y clave `Operador.Demo.2026` (solo lectura: `lector` / `Lector.Demo.2026`). Pegarlo en *Authentication*.
    - Crear una autorización con 2 servicios y mostrar los montos (ARS + afiliado = total).
    - Repetir la misma solicitud con el mismo `Idempotency-Key`: misma autorización, `Idempotent-Replayed: true`.
    - Pedir el detalle (`ETag`), hacer el PUT con `If-Match` y repetirlo: **412**.
