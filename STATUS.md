@@ -17,7 +17,7 @@ Actualizar al cerrar cada fase (y antes de cada merge a `main`).
 | 3 | Application CQRS (MediatR, FluentValidation, reglas) | `feature/fase-3-cqrs` | ✅ |
 | 4 | API REST (endpoints, ProblemDetails, idempotencia, Scalar) | `feature/fase-4-api` | ✅ |
 | 5 | Seguridad (JWT, políticas, rate limiting) | `feature/fase-5-seguridad` | ✅ |
-| 6 | Observabilidad y resiliencia (logs, OTel, health checks) | `feature/fase-6-observabilidad` | ⏳ |
+| 6 | Observabilidad y resiliencia (logs, OTel, health checks) | `feature/fase-6-observabilidad` | ✅ |
 | 7 | Integración (Outbox + RabbitMQ, caché Redis) | `feature/fase-7-integracion` | ⏳ |
 | 8 | Pruebas y calidad (≥80 % cobertura, Sonar) | `feature/fase-8-pruebas` | ⏳ |
 | 9 | Contenerización (Dockerfile, Compose completo) | `feature/fase-9-docker` | ⏳ |
@@ -145,13 +145,25 @@ Actualizar al cerrar cada fase (y antes de cada merge a `main`).
 - [x] Esquema Bearer en OpenAPI/Scalar
 - [x] 20 pruebas de seguridad (incluye 413 con Kestrel real) → 177 pruebas en total; sin paquetes vulnerables
 - [ ] `ForwardedHeaders` para IP real y HTTPS detrás del ingress → Fase 9/10 (con la topología de despliegue)
-- [ ] Revisión de PII en logs con el logging estructurado → Fase 6
+- [x] Revisión de PII en logs con el logging estructurado → hecha en la Fase 6
 
-### Fase 6 — Observabilidad y resiliencia ⏳
-- [ ] Logging estructurado (Serilog o `ILogger` + OTel) con Correlation-Id
-- [ ] OpenTelemetry: trazas (ASP.NET Core, EF Core, HTTP), métricas
-- [ ] Health checks: `/health/live` y `/health/ready` (SQL, RabbitMQ, Redis)
-- [ ] Graceful shutdown
+### Fase 6 — Observabilidad y resiliencia ✅
+- [x] Logs estructurados con el logging nativo: JSON en UTC (producción) y texto de una línea (Development)
+- [x] Scope `CorrelationId` en cada log (legible en texto, propiedad estructurada en JSON/OTel)
+- [x] Sin PII en logs: solo nombre del caso de uso, duración y código de error; EF Core en Warning fuera de dev (verificado)
+- [x] OpenTelemetry: trazas (ASP.NET Core, HttpClient, SqlClient sin texto SQL) + span por caso de uso (`TracingBehavior`)
+- [x] Métricas: runtime, ASP.NET Core, HttpClient y de negocio (creadas, actualizadas, inactivadas, reintentos idempotentes, monto reclamado)
+- [x] Application solo usa `ActivitySource`/`IMeterFactory` del BCL: no depende de OpenTelemetry
+- [x] Exportación OTLP solo si existe `OTEL_EXPORTER_OTLP_ENDPOINT` (independiente del proveedor)
+- [x] Aspire Dashboard en docker-compose como visor local (http://localhost:18888)
+- [x] `X-Correlation-Id` = TraceId del span: un incidente reportado se ubica en trazas y logs (probado)
+- [x] `/health/live` (proceso) y `/health/ready` (SQL Server con `SELECT 1`, sin reintentos, 5 s), anónimas, sin rate limiting, sin detalles
+- [x] Timeout por solicitud (30 s → 504 ProblemDetails) que cancela hasta SQL Server; timeout de comandos SQL
+- [x] Reintentos de EF ante fallos transitorios (Fase 2) + apagado ordenado (`ShutdownTimeout`, verificado con SIGTERM)
+- [x] 10 pruebas nuevas (span, métricas, sondas, 503 sin SQL, correlación) → 187 en total
+- [x] Defecto encontrado en prueba manual: scope del CorrelationId ilegible en consola → corregido
+- [ ] `preStop` + `terminationGracePeriodSeconds` y probes en los manifiestos → Fase 10
+- [ ] Panel/alertas (p. ej. Grafana) sobre las métricas → fuera de alcance; se documenta qué alertar
 
 ### Fase 7 — Integración ⏳
 - [ ] Transactional Outbox: los eventos se guardan en la misma transacción que la autorización
@@ -255,6 +267,11 @@ Actualizar al cerrar cada fase (y antes de cada merge a `main`).
 | 028 | Autorización por roles en políticas con nombre | `[Authorize(Roles=...)]` disperso | Las políticas centralizan la regla: cambiar quién puede escribir es un cambio en un solo lugar. El fallback obliga a que un endpoint nuevo nazca protegido. |
 | 029 | Rate limiting en la API (ventana fija por usuario/IP) | Solo en el gateway / ingress | Defensa en profundidad: la API se protege aunque el ingress cambie. En el clúster el límite efectivo por réplica se complementa con el del ingress. |
 | 030 | Validación únicamente con FluentValidation | DataAnnotations + FluentValidation | Una sola fuente de reglas, mensajes consistentes en español y probados unitariamente. |
+| 031 | OpenTelemetry con exportación OTLP | SDK de un proveedor (App Insights, Datadog) | Estándar abierto: cambiar de backend es configuración. En local se ve con Aspire Dashboard; en Azure, vía collector o Azure Monitor. |
+| 032 | Logging nativo (`ILogger` + consola JSON + OTel) | Serilog | Cubre lo necesario (estructurado, scopes, JSON, exportación OTel) sin otra dependencia ni configuración paralela. |
+| 033 | Métricas y trazas de negocio con APIs del BCL en Application | OpenTelemetry en Application | `ActivitySource` y `Meter` son .NET estándar; Application queda libre de frameworks y la regla de arquitectura se mantiene. |
+| 034 | Sonda de SQL propia, sin reintentos | `AddDbContextCheck` (usa la estrategia de reintentos de EF) | Una sonda debe responder en segundos; con reintentos de EF podría tardar más que el timeout del probe y dar falsos negativos. |
+| 035 | Liveness sin dependencias | Liveness que consulta la BD | Si la BD cae, reiniciar pods no la arregla y agrava el problema; readiness saca el pod del balanceo mientras tanto. |
 | 018 | Cadena de conexión en user-secrets / variables de entorno | `appsettings.json` | Ningún secreto en el repositorio. |
 ---
 
@@ -268,3 +285,4 @@ Actualizar al cerrar cada fase (y antes de cada merge a `main`).
 | 2026-11-23 | Fase 3 cerrada: CQRS con MediatR, validación en pipeline, Result pattern, idempotencia, concurrencia, listado keyset. 129 pruebas en verde (incluye integración con SQL Server real). |
 | 2026-11-23 | Fase 4 cerrada: API REST completa con ProblemDetails, idempotencia, ETag/If-Match, Correlation-Id, catálogos y Scalar. 157 pruebas en verde (28 HTTP). |
 | 2026-11-23 | Fase 5 cerrada: JWT con políticas por rol, emisor de demo controlado, rate limiting, headers de seguridad, límites y CORS. 177 pruebas en verde. |
+| 2026-11-23 | Fase 6 cerrada: logs JSON con CorrelationId, OpenTelemetry (trazas, métricas de negocio, logs), Aspire Dashboard, sondas live/ready, timeouts y apagado ordenado. 187 pruebas en verde. |
