@@ -2,6 +2,7 @@ using HealthAuthorizations.Application.Common.Interfaces;
 using HealthAuthorizations.Domain.Autorizaciones;
 using HealthAuthorizations.Domain.Catalogos;
 using HealthAuthorizations.Domain.Common;
+using HealthAuthorizations.Infrastructure.Persistence.Seed;
 using Microsoft.EntityFrameworkCore;
 
 namespace HealthAuthorizations.Infrastructure.Persistence;
@@ -27,6 +28,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
         ConfigurarAuditoria(modelBuilder);
+        CatalogosSeed.Aplicar(modelBuilder);
     }
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
