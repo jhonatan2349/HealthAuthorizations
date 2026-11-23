@@ -24,6 +24,7 @@ public sealed class DatabaseFixture : IAsyncLifetime
     private readonly MsSqlContainer _container = new MsSqlBuilder("mcr.microsoft.com/mssql/server:2022-latest").Build();
 
     private ServiceProvider? _services;
+    private ApiFactory? _api;
     private int _secuencia;
 
     public IServiceProvider Services => _services ?? throw new InvalidOperationException("Fixture no inicializado.");
@@ -50,10 +51,20 @@ public sealed class DatabaseFixture : IAsyncLifetime
 
         await using var scope = _services.CreateAsyncScope();
         await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Database.MigrateAsync();
+
+        _api = new ApiFactory(_container.GetConnectionString());
     }
+
+    /// <summary>Cliente HTTP contra la API real en memoria (pipeline completo: middleware, MVC, filtros).</summary>
+    public HttpClient CreateClient() => (_api ?? throw new InvalidOperationException("Fixture no inicializado.")).CreateClient();
 
     public async ValueTask DisposeAsync()
     {
+        if (_api is not null)
+        {
+            await _api.DisposeAsync();
+        }
+
         if (_services is not null)
         {
             await _services.DisposeAsync();
