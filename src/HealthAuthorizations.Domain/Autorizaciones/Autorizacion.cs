@@ -16,6 +16,7 @@ public sealed class Autorizacion : AggregateRoot<long>
     public const int MaxLongitudMotivoInactivacion = 500;
     public const int MaxLongitudClaveIdempotencia = 64;
     public const int MaxServicios = 50;
+    public const string PrefijoNumero = "AUT-";
 
     private readonly List<AutorizacionDetalle> _detalles = [];
 
@@ -64,6 +65,13 @@ public sealed class Autorizacion : AggregateRoot<long>
     public IReadOnlyCollection<AutorizacionDetalle> Detalles => _detalles.AsReadOnly();
 
     public bool EstaActiva => Estado == EstadoAutorizacion.Activa;
+
+    /// <summary>
+    /// Misma regla que la columna calculada de la base de datos. Permite conocer el número antes de
+    /// persistir (el Id lo asigna HiLo al agregar), por ejemplo para los eventos de integración.
+    /// </summary>
+    public static string FormatearNumero(long id) =>
+        PrefijoNumero + id.ToString("D10", System.Globalization.CultureInfo.InvariantCulture);
 
     public static Autorizacion Crear(
         Participantes participantes,

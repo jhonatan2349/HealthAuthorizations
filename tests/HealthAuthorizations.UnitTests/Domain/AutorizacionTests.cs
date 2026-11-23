@@ -172,6 +172,13 @@ public sealed class AutorizacionTests
     }
 
     [Theory]
+    [InlineData(1, "AUT-0000000001")]
+    [InlineData(1234567, "AUT-0001234567")]
+    [InlineData(9999999999, "AUT-9999999999")]
+    public void FormatearNumero_RellenaADiezDigitos(long id, string esperado) =>
+        Autorizacion.FormatearNumero(id).ShouldBe(esperado);
+
+    [Theory]
     [InlineData(0, 2, 3)]
     [InlineData(1, 0, 3)]
     [InlineData(1, 2, -1)]
