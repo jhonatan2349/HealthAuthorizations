@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using HealthAuthorizations.Api.ErrorHandling;
 using HealthAuthorizations.Api.Middleware;
+using HealthAuthorizations.Api.OpenApi;
 using HealthAuthorizations.Api.Services;
 using HealthAuthorizations.Application;
 using HealthAuthorizations.Application.Common.Interfaces;
@@ -12,7 +13,7 @@ builder.Services
     .AddControllers()
     .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
-builder.Services.AddOpenApi();
+builder.Services.AddApiDocumentation();
 builder.Services.AddApiProblemDetails();
 
 builder.Services.AddHttpContextAccessor();
@@ -27,9 +28,10 @@ app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 
-if (app.Environment.IsDevelopment())
+// La documentación es un entregable: se publica en todos los ambientes salvo producción.
+if (!app.Environment.IsProduction())
 {
-    app.MapOpenApi();
+    app.MapApiDocumentation();
 }
 
 app.UseHttpsRedirection();
@@ -39,3 +41,6 @@ app.UseAuthorization();
 app.MapControllers();
 
 await app.RunAsync();
+
+/// <summary>Punto de entrada; parcial y público para las pruebas con WebApplicationFactory.</summary>
+public partial class Program;
