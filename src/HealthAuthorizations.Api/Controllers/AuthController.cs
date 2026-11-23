@@ -6,6 +6,7 @@ using HealthAuthorizations.Api.Security;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 
 namespace HealthAuthorizations.Api.Controllers;
@@ -21,6 +22,7 @@ public sealed class AuthController(
     /// <summary>Obtiene un token de acceso con un usuario de demostración.</summary>
     /// <remarks>Solo disponible cuando <c>Auth:EmisorDemo:Habilitado</c> es true (desarrollo y demo).</remarks>
     [HttpPost("token")]
+    [EnableRateLimiting(RateLimitingSetup.PoliticaToken)]
     [ProducesResponseType<TokenEmitido>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]

@@ -24,6 +24,10 @@ internal sealed class ApiFactory(string connectionString, IReadOnlyDictionary<st
         builder.UseSetting("Auth:EmisorDemo:Usuarios:0:Clave", ClaveDemo);
         builder.UseSetting("Auth:EmisorDemo:Usuarios:0:Roles:0", "autorizaciones.operador");
 
+        // Las pruebas comparten usuario e IP: límites altos para no interferir (hay una prueba específica de 429).
+        builder.UseSetting("RateLimiting:PermisosPorMinuto", "100000");
+        builder.UseSetting("RateLimiting:PermisosTokenPorMinuto", "100000");
+
         foreach (var (clave, valor) in ajustes ?? new Dictionary<string, string?>())
         {
             builder.UseSetting(clave, valor);

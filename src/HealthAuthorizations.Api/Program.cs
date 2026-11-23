@@ -17,6 +17,7 @@ builder.Services
 builder.Services.AddApiDocumentation();
 builder.Services.AddApiProblemDetails();
 builder.Services.AddApiSecurity();
+builder.Services.AddApiRateLimiting();
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
@@ -39,6 +40,7 @@ if (!app.Environment.IsProduction())
 app.UseHttpsRedirection();
 
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapControllers();
