@@ -46,7 +46,7 @@ public sealed class DatabaseFixture : IAsyncLifetime
             .AddSingleton<ICurrentUser>(new UsuarioFijo())
             .AddApplication(configuration)
             .AddInfrastructure(configuration)
-            .BuildServiceProvider();
+            .BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
 
         await using var scope = _services.CreateAsyncScope();
         await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Database.MigrateAsync();

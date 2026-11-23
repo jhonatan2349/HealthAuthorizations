@@ -35,7 +35,12 @@ public static class DependencyInjection
             cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));
         });
 
-        services.AddValidatorsFromAssembly(assembly, includeInternalTypes: true);
+        // Los validadores de interfaces (IPaginada, IDatosAutorizacion) son parciales: se componen con Include()
+        // en el validador de cada solicitud y no se registran por sí solos.
+        services.AddValidatorsFromAssembly(
+            assembly,
+            includeInternalTypes: true,
+            filter: r => !r.InterfaceType.GenericTypeArguments[0].IsInterface);
         services.AddScoped<ReferenciasAutorizacion>();
 
         // Regla de cobertura configurable; se valida al arrancar para fallar rápido.
