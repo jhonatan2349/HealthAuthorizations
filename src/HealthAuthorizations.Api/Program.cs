@@ -10,6 +10,13 @@ using HealthAuthorizations.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.WebHost.ConfigureKestrel(kestrel =>
+{
+    // No revelar la tecnología del servidor; una autorización con 50 servicios ocupa unos pocos KB.
+    kestrel.AddServerHeader = false;
+    kestrel.Limits.MaxRequestBodySize = 1024 * 1024;
+});
+
 builder.Services
     .AddControllers()
     .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
@@ -18,6 +25,7 @@ builder.Services.AddApiDocumentation();
 builder.Services.AddApiProblemDetails();
 builder.Services.AddApiSecurity();
 builder.Services.AddApiRateLimiting();
+builder.Services.AddApiCors(builder.Configuration);
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
@@ -28,6 +36,7 @@ builder.Services.AddInfrastructure(builder.Configuration);
 var app = builder.Build();
 
 app.UseMiddleware<CorrelationIdMiddleware>();
+app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 
@@ -37,7 +46,13 @@ if (!app.Environment.IsProduction())
     app.MapApiDocumentation();
 }
 
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
+}
+
 app.UseHttpsRedirection();
+app.UseCors();
 
 app.UseAuthentication();
 app.UseRateLimiter();
