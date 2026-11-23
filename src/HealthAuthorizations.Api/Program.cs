@@ -23,6 +23,7 @@ builder.WebHost.ConfigureKestrel(kestrel =>
 });
 
 builder.AddApiObservability();
+builder.AddApiResilience();
 
 builder.Services
     .AddControllers(options =>
@@ -71,6 +72,7 @@ app.UseCors();
 app.UseAuthentication();
 app.UseRateLimiter();
 app.UseAuthorization();
+app.UseRequestTimeouts();
 
 app.MapControllers();
 app.MapApiHealthChecks();
