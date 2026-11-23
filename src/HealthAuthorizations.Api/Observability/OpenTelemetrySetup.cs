@@ -1,5 +1,6 @@
 using System.Reflection;
 using HealthAuthorizations.Application.Common.Telemetry;
+using HealthAuthorizations.Infrastructure.Messaging;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
@@ -26,7 +27,7 @@ internal static class OpenTelemetrySetup
                 .AddService(NombreServicio, serviceVersion: version)
                 .AddAttributes([new("deployment.environment.name", builder.Environment.EnvironmentName)]))
             .WithTracing(tracing => tracing
-                .AddSource(ApplicationTelemetry.Nombre)
+                .AddSource(ApplicationTelemetry.Nombre, MensajeriaTelemetry.Nombre)
                 .AddAspNetCoreInstrumentation(options =>
                 {
                     // Las sondas de Kubernetes llaman cada pocos segundos: solo agregarían ruido.
@@ -37,7 +38,7 @@ internal static class OpenTelemetrySetup
                 // No captura el texto SQL por defecto: los parámetros pueden contener datos de salud.
                 .AddSqlClientInstrumentation())
             .WithMetrics(metrics => metrics
-                .AddMeter(ApplicationTelemetry.Nombre)
+                .AddMeter(ApplicationTelemetry.Nombre, MensajeriaTelemetry.Nombre)
                 .AddAspNetCoreInstrumentation()
                 .AddHttpClientInstrumentation()
                 .AddRuntimeInstrumentation())
