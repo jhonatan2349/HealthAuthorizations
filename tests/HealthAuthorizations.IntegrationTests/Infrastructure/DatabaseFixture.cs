@@ -73,7 +73,8 @@ public sealed class DatabaseFixture : IAsyncLifetime
     public HttpClient CreateAnonymousClient() => Api.CreateClient();
 
     /// <summary>API con configuración distinta (p. ej. límites de tasa bajos) sobre la misma base de datos.</summary>
-    internal ApiFactory CreateApi(IReadOnlyDictionary<string, string?> ajustes) => new(_container.GetConnectionString(), ajustes);
+    internal ApiFactory CreateApi(IReadOnlyDictionary<string, string?> ajustes, string entorno = "Testing") =>
+        new(_container.GetConnectionString(), ajustes, entorno);
 
     public async ValueTask DisposeAsync()
     {

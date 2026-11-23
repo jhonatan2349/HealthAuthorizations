@@ -5,17 +5,20 @@ using Microsoft.AspNetCore.Mvc.Testing;
 namespace HealthAuthorizations.IntegrationTests.Infrastructure;
 
 /// <summary>Levanta la API real apuntando al SQL Server del contenedor, con una clave JWT efímera.</summary>
-internal sealed class ApiFactory(string connectionString, IReadOnlyDictionary<string, string?>? ajustes = null) : WebApplicationFactory<Program>
+internal sealed class ApiFactory(
+    string connectionString,
+    IReadOnlyDictionary<string, string?>? ajustes = null,
+    string entorno = "Testing") : WebApplicationFactory<Program>
 {
     public const string UsuarioDemo = "operador-demo";
     public const string ClaveDemo = "Clave.De.Prueba.123";
 
-    private static readonly string ClaveFirma = Convert.ToBase64String(RandomNumberGenerator.GetBytes(48));
+    internal static readonly string ClaveFirma = Convert.ToBase64String(RandomNumberGenerator.GetBytes(48));
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         // "Testing" no carga user-secrets, así la configuración del contenedor no se pisa.
-        builder.UseEnvironment("Testing");
+        builder.UseEnvironment(entorno);
         builder.UseSetting("ConnectionStrings:Default", connectionString);
         builder.UseSetting("Jwt:SigningKey", ClaveFirma);
         builder.UseSetting("Auth:EmisorDemo:Habilitado", "true");
