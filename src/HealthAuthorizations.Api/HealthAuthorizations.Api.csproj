@@ -20,6 +20,11 @@
     </PackageReference>
   </ItemGroup>
 
+  <!-- La configuración de desarrollo (usuarios demo, endpoints locales) no viaja en la imagen publicada. -->
+  <ItemGroup>
+    <Content Update="appsettings.Development.json" CopyToPublishDirectory="Never" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\HealthAuthorizations.Application\HealthAuthorizations.Application.csproj" />
     <ProjectReference Include="..\HealthAuthorizations.Infrastructure\HealthAuthorizations.Infrastructure.csproj" />

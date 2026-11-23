@@ -1,0 +1,23 @@
+# Contexto mínimo para el build: solo lo que el Dockerfile copia.
+# Excluye secretos, artefactos locales y todo lo que invalidaría la caché sin aportar a la imagen.
+**/bin/
+**/obj/
+**/TestResults/
+**/*.user
+**/.vs/
+**/.vscode/
+**/.idea/
+**/.DS_Store
+.git/
+.gitignore
+.env
+.env.*
+**/secrets.json
+**/appsettings.*.local.json
+tests/
+docs/
+database/
+*.md
+docker-compose*.yml
+Dockerfile
+.dockerignore
