@@ -1,6 +1,6 @@
 @HealthAuthorizations.Api_HostAddress = http://localhost:5048
 
-GET {{HealthAuthorizations.Api_HostAddress}}/weatherforecast/
+GET {{HealthAuthorizations.Api_HostAddress}}/openapi/v1.json
 Accept: application/json
 
 ###
