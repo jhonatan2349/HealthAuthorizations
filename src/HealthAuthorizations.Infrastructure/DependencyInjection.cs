@@ -1,4 +1,5 @@
 using HealthAuthorizations.Application.Common.Interfaces;
+using HealthAuthorizations.Infrastructure.HealthChecks;
 using HealthAuthorizations.Infrastructure.Persistence;
 using HealthAuthorizations.Infrastructure.Persistence.Interceptors;
 using Microsoft.EntityFrameworkCore;
@@ -33,6 +34,9 @@ public static class DependencyInjection
                 .AddInterceptors(serviceProvider.GetRequiredService<AuditableEntityInterceptor>()));
 
         services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<ApplicationDbContext>());
+
+        services.AddHealthChecks()
+            .AddCheck("sqlserver", new SqlServerHealthCheck(connectionString), tags: [HealthCheckTags.Ready], timeout: TimeSpan.FromSeconds(5));
 
         return services;
     }

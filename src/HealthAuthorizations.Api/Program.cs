@@ -73,6 +73,7 @@ app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapApiHealthChecks();
 
 await app.RunAsync();
 
