@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\HealthAuthorizations.Domain\HealthAuthorizations.Domain.csproj" />
+    <ProjectReference Include="..\..\src\HealthAuthorizations.Application\HealthAuthorizations.Application.csproj" />
+  </ItemGroup>
+
+</Project>

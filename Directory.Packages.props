@@ -17,6 +17,7 @@
   </ItemGroup>
 
   <ItemGroup Label="Persistencia">
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="$(DotNetVersion)" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="$(DotNetVersion)" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.SqlServer" Version="$(DotNetVersion)" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="$(DotNetVersion)" />
