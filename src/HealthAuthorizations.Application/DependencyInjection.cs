@@ -1,3 +1,4 @@
+using System.Globalization;
 using FluentValidation;
 using HealthAuthorizations.Application.Autorizaciones.Common;
 using HealthAuthorizations.Application.Common.Behaviors;
@@ -37,6 +38,7 @@ public static class DependencyInjection
 
         // Los validadores de interfaces (IPaginada, IDatosAutorizacion) son parciales: se componen con Include()
         // en el validador de cada solicitud y no se registran por sí solos.
+        ValidatorOptions.Global.LanguageManager.Culture = new CultureInfo("es");
         services.AddValidatorsFromAssembly(
             assembly,
             includeInternalTypes: true,
