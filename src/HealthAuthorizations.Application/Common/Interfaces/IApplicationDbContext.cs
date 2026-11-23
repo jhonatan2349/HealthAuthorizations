@@ -1,6 +1,7 @@
 using HealthAuthorizations.Domain.Autorizaciones;
 using HealthAuthorizations.Domain.Catalogos;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 
 namespace HealthAuthorizations.Application.Common.Interfaces;
 
@@ -25,5 +26,13 @@ public interface IApplicationDbContext
 
     DbSet<TipoServicio> TiposServicios { get; }
 
+    /// <summary>Acceso al seguimiento de cambios; se usa para fijar la versión esperada (If-Match) en la concurrencia optimista.</summary>
+    EntityEntry<TEntity> Entry<TEntity>(TEntity entity)
+        where TEntity : class;
+
+    /// <summary>
+    /// Persiste los cambios en una transacción.
+    /// Lanza <c>ConcurrencyConflictException</c> o <c>DuplicateKeyException</c> en lugar de excepciones del proveedor.
+    /// </summary>
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

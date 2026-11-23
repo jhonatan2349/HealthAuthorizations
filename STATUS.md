@@ -14,7 +14,7 @@ Actualizar al cerrar cada fase (y antes de cada merge a `main`).
 | 0 | Fundaciones (solución, capas, Git, Docker SQL, build, pruebas de arquitectura) | `chore/fase-0-fundaciones` | ✅ |
 | 1 | Application base (Mapster) | `feature/application-mapster` | ✅ |
 | 2 | Dominio + Persistencia (EF Core, migraciones, seed) | `feature/fase-2-dominio-persistencia` | ✅ |
-| 3 | Application CQRS (MediatR, FluentValidation, reglas) | `feature/fase-3-cqrs` | ⏳ |
+| 3 | Application CQRS (MediatR, FluentValidation, reglas) | `feature/fase-3-cqrs` | ✅ |
 | 4 | API REST (endpoints, ProblemDetails, idempotencia, Scalar) | `feature/fase-4-api` | ⏳ |
 | 5 | Seguridad (JWT, políticas, rate limiting) | `feature/fase-5-seguridad` | ⏳ |
 | 6 | Observabilidad y resiliencia (logs, OTel, health checks) | `feature/fase-6-observabilidad` | ⏳ |
@@ -83,15 +83,24 @@ Actualizar al cerrar cada fase (y antes de cada merge a `main`).
 - [x] Verificado contra SQL Server real: constraints rechazan datos inválidos; round-trip EF (HiLo, auditoría, concurrencia, idempotencia)
 - [ ] Pasar la verificación de round-trip a pruebas de integración automatizadas (Testcontainers, Fase 4/8)
 
-### Fase 3 — Application CQRS ⏳
-- [ ] MediatR: un handler por caso de uso (Commands: Crear, Actualizar, Inactivar · Queries: Listar, ObtenerDetalle)
-- [ ] `ValidationBehavior` (FluentValidation en el pipeline)
-- [ ] `LoggingBehavior` / `PerformanceBehavior`
-- [ ] Result pattern para errores de negocio esperados (evitar excepciones como control de flujo)
-- [ ] Validación de existencia de entidades relacionadas (afiliado, prestador, etc.)
-- [ ] Queries con `AsNoTracking` + proyección directa a DTO (`ProjectToType`)
-- [ ] Paginación: keyset (cursor) para el listado masivo; filtros por afiliado, prestador, contratante, estado, rango de fechas
-- [ ] DTOs de entrada/salida separados de las entidades
+### Fase 3 — Application CQRS ✅
+- [x] MediatR con un handler por caso de uso, organizados por slice (`Autorizaciones/Crear|Actualizar|Inactivar|Obtener|Listar`)
+- [x] `ValidationBehavior` (FluentValidation en el pipeline → `ValidationException` → 400 en la Fase 4)
+- [x] `LoggingBehavior` con `LoggerMessage`: duración, código de error y alerta > 500 ms, sin registrar PII
+- [x] Result pattern (`Result`/`Result<T>` + `Error` tipado) para errores esperados; códigos estables (`Afiliado.NoExiste`, …)
+- [x] Validaciones de forma compartidas entre crear y actualizar (`IDatosAutorizacion`), sin duplicación
+- [x] Existencia y estado de afiliado, contratante, prestador y tipos de servicio (errores claros; las FKs siguen como garantía final)
+- [x] Idempotencia: reintento con la misma clave devuelve la original; la carrera la resuelve el índice único; otra clave/afiliado → 409
+- [x] Concurrencia optimista: versión (If-Match) como valor original del `rowversion`
+- [x] Infraestructura traduce `DbUpdateConcurrencyException` y violaciones de índice único a excepciones de Application
+- [x] Queries con `AsNoTracking` y proyección directa a DTO con JOINs (una consulta, sin navegaciones entre agregados)
+- [x] Listado con paginación keyset (cursor opaco base64url), sin `COUNT(*)`; límite 1–100
+- [x] Filtros: número, afiliado, documento del afiliado, prestador, contratante, intermediario, tipo de servicio, estado, rango de fechas
+- [x] Política de cobertura desde configuración (`Cobertura:PorcentajeArs`), validada al arrancar
+- [x] Mapster para mapear contratos de entrada a objetos de valor del dominio
+- [x] Pruebas: 55 unitarias de Application + 23 de integración con Testcontainers (SQL Server real) → 129 en total
+- [ ] Prueba de carga del listado con volumen alto (script de 1M de filas + plan de ejecución) → Fase 8
+- [ ] Consultas de catálogos (prestadores, afiliados, tipos) → Fase 4, junto con sus endpoints
 
 ### Fase 4 — API REST ⏳
 - [ ] Recursos: `POST/GET /api/v1/autorizaciones`, `GET/PUT /api/v1/autorizaciones/{id}`, `PATCH /api/v1/autorizaciones/{id}/inactivar` (o `DELETE` lógico — decidir y documentar)
@@ -198,10 +207,10 @@ Actualizar al cerrar cada fase (y antes de cada merge a `main`).
 | 003 | SQL Server 2022 en Docker | PostgreSQL | Ecosistema .NET empresarial; `rowversion`, índices filtrados y columnas calculadas nativos. |
 | 004 | EF Core para escritura y lectura | Dapper para lecturas | Un solo stack; con `AsNoTracking` + proyecciones el rendimiento es suficiente. Se introduce Dapper solo si una consulta medida lo justifica. |
 | 005 | `IApplicationDbContext` expuesto a Application (con `DbSet<T>`) | Repositorios por agregado | Evita una abstracción sobre otra (EF ya es Unit of Work + Repository). Trade-off: Application depende del paquete `Microsoft.EntityFrameworkCore`. |
-| 006 | _MediatR — pendiente_ | Handlers propios | Lo exige el mandato. Nota: desde v13 MediatR requiere license key (Community gratuita); documentarlo. |
+| 006 | MediatR 15 + behaviors (logging → validación) | Handlers propios / Wolverine | Lo exige el mandato; los behaviors resuelven aspectos transversales en un solo lugar. Desde v13 requiere license key (gratuita en Community) → `MediatR:LicenseKey` por configuración, nunca en el repo. |
 | 007 | Distribución de montos con Strategy (`IPoliticaCobertura`) | 70/30 fijo en el código | Cambiar la regla = otra implementación o configuración, sin tocar el agregado ni los casos de uso. El porcentaje se guarda por detalle para que el histórico no cambie. |
 | 008 | Idempotencia: `ClaveIdempotencia` en la autorización con índice único filtrado | Tabla de idempotencia aparte / solo validar duplicados | La clave se guarda en la misma transacción que la autorización: dos solicitudes simultáneas iguales no pueden crear dos registros. El header `Idempotency-Key` se agrega en la Fase 4. |
-| 009 | _Paginación — pendiente_ | Offset (`Skip/Take`) | Keyset: costo constante en páginas profundas con volúmenes altos. Los índices por FK ya incluyen el Id (clave agrupada). |
+| 009 | Paginación keyset con cursor opaco, sin total | Offset (`Skip/Take`) + `COUNT(*)` | OFFSET lee y descarta todas las filas previas y el COUNT recorre la tabla: ambos se degradan con el volumen. Keyset cuesta lo mismo en cualquier página; el cursor opaco permite cambiar el orden sin romper el contrato. |
 | 010 | _Mensajería — pendiente_ | Publicar directo al broker | Outbox: sin eventos perdidos ni fantasmas si falla la BD o el broker. |
 | 011 | xUnit v3 + Microsoft.Testing.Platform + Shouldly | VSTest + FluentAssertions | MTP es el runner nativo de .NET 10. FluentAssertions v8 pasó a licencia comercial; Shouldly es MIT. Cobertura con `Microsoft.Testing.Extensions.CodeCoverage` (Cobertura → SonarQube). |
 | 012 | Warnings como errores + analizadores | Solo convenciones | La calidad se verifica en cada build, no solo en revisión; apoya la meta de “0 errores bloqueantes” de Sonar. |
@@ -210,6 +219,9 @@ Actualizar al cerrar cada fase (y antes de cada merge a `main`).
 | 015 | Contratante e intermediario guardados en la autorización (snapshot) | Derivarlos del afiliado con un JOIN | Preserva el histórico si el afiliado cambia de empresa y permite filtrar por contratante con índice propio. |
 | 016 | Integridad en dominio **y** en BD (CHECK/FK/UNIQUE) | Solo en el dominio | La BD es la última línea de defensa ante scripts, otros sistemas o errores futuros. |
 | 017 | Excepciones de dominio para invariantes | Result en el dominio | Una invariante rota es un error del llamador; los handlers validan antes (FluentValidation) y usan Result para errores esperados (Fase 3). |
+| 019 | Result pattern para errores esperados; excepciones para lo excepcional | Excepciones para todo | No encontrada, inactiva o referencia inexistente son flujos normales: Result los hace explícitos y baratos. Validación de entrada y concurrencia usan excepciones porque cortan el pipeline y las maneja un handler global. |
+| 020 | Lado de lectura con JOINs y proyección directa | Navegaciones en el agregado + Include + Mapster `ProjectToType` | El agregado referencia a otros por Id (DDD). La proyección trae solo las columnas necesarias en una consulta. Mapster se usa donde aporta: mapear contratos de entrada al dominio. |
+| 021 | Pruebas de integración con Testcontainers (SQL Server real) | EF InMemory / SQLite | InMemory no aplica constraints, transacciones ni rowversion, y SQLite no soporta HiLo ni la columna calculada: probarían otra base. El contenedor se comparte por ensamblado y se aísla por datos. |
 | 018 | Cadena de conexión en user-secrets / variables de entorno | `appsettings.json` | Ningún secreto en el repositorio. |
 ---
 
@@ -220,3 +232,4 @@ Actualizar al cerrar cada fase (y antes de cada merge a `main`).
 | 2026-11-23 | Estructura inicial, Mapster (PR #1), SQL Server en Compose. Inicio de Fase 2: paquetes EF Core y `IApplicationDbContext` vacío. Se crea este `STATUS.md`. |
 | 2026-11-23 | Fase 0 cerrada: build común, CPM, `.editorconfig`, `.env.example`, limpieza de plantilla, pruebas de arquitectura. |
 | 2026-11-23 | Fase 2 cerrada: dominio rico, política de cobertura, persistencia EF Core, migración inicial, seed y script SQL. 51 pruebas en verde. |
+| 2026-11-23 | Fase 3 cerrada: CQRS con MediatR, validación en pipeline, Result pattern, idempotencia, concurrencia, listado keyset. 129 pruebas en verde (incluye integración con SQL Server real). |

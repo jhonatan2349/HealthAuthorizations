@@ -13,9 +13,9 @@
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
 
     <!-- Necesario para que IDE0005 (usings innecesarios) corra en build; también alimenta OpenAPI.
-         CS1591: no se exige comentario XML en cada miembro público. -->
+         CS1591/CS1573: no se exige comentario XML en cada miembro ni en cada parámetro. -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <NoWarn>$(NoWarn);CS1591;CS1573</NoWarn>
 
     <!-- Builds reproducibles. -->
     <Deterministic>true</Deterministic>
