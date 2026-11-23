@@ -56,3 +56,8 @@ dotnet_diagnostic.CA2007.severity = none
 [tests/**.cs]
 # Nombres de prueba con guiones bajos (Metodo_Escenario_Resultado)
 dotnet_diagnostic.CA1707.severity = none
+
+[**/Migrations/*.cs]
+# Código generado por EF Core: fuera de analizadores, estilo y cobertura.
+generated_code = true
+dotnet_analyzer_diagnostic.severity = none
