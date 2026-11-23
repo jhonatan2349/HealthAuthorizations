@@ -19,9 +19,9 @@ Actualizar al cerrar cada fase (y antes de cada merge a `main`).
 | 5 | Seguridad (JWT, políticas, rate limiting) | `feature/fase-5-seguridad` | ✅ |
 | 6 | Observabilidad y resiliencia (logs, OTel, health checks) | `feature/fase-6-observabilidad` | ✅ |
 | 7 | Integración (Outbox + RabbitMQ, caché Redis) | `feature/fase-7-integracion` | ✅ |
-| 8 | Pruebas y calidad (≥80 % cobertura, Sonar) | `feature/fase-8-pruebas` | ⏳ |
+| 8 | Pruebas y calidad (≥80 % cobertura, Sonar) | `feature/fase-10-cicd` (junto al pipeline) | ✅ |
 | 9 | Contenerización (Dockerfile, Compose completo) | `feature/fase-9-contenerizacion` | ✅ |
-| 10 | CI/CD Azure DevOps + GitOps (K8s, Kustomize/Argo CD) | `feature/fase-10-cicd` | ⏳ |
+| 10 | CI/CD Azure DevOps (K8s/GitOps ➖ opcional) | `feature/fase-10-cicd` | ✅ |
 | 11 | Documentación final y preparación de la defensa | `feature/fase-11-docs` | ⏳ |
 
 > Las pruebas **no** esperan a la Fase 8: cada fase entrega sus propias pruebas. La Fase 8 cierra brechas de cobertura y añade el análisis estático.
@@ -184,14 +184,19 @@ Actualizar al cerrar cada fase (y antes de cada merge a `main`).
 - ➖ MongoDB / SignalR: sin un caso de uso que lo justifique (los consumidores en tiempo real pueden suscribirse a RabbitMQ)
 - [ ] Consumidor de ejemplo (worker) → opcional, si queda tiempo para la demo
 
-### Fase 8 — Pruebas y calidad ⏳
-- [ ] Unitarias: dominio (invariantes, cálculo 70/30, redondeo), validadores, handlers
-- [ ] Integración: `WebApplicationFactory` + Testcontainers (SQL Server real)
-- [ ] Escenarios críticos: duplicados por idempotencia, concurrencia (409/412), entidades inexistentes, autorización inactiva
-- [ ] Pruebas de arquitectura (NetArchTest): Domain no depende de nada; Application no depende de Infrastructure/Api
-- [ ] Cobertura con Coverlet + ReportGenerator (objetivo > 80 %)
-- [ ] SonarQube: duplicación < 3 %, sin bugs bloqueantes
-- [ ] `dotnet list package --vulnerable` sin críticas
+### Fase 8 — Pruebas y calidad ✅
+Las pruebas se escribieron en cada fase; aquí se consolidan y se miden (SonarQube 25.10 local, mismo análisis que el pipeline).
+- [x] Unitarias: dominio (invariantes, 70/30, redondeo), validadores, handlers, mapeo de eventos
+- [x] Integración: `WebApplicationFactory` + Testcontainers (SQL Server y RabbitMQ reales)
+- [x] Escenarios críticos: idempotencia, concurrencia (409/412), entidades inexistentes, autorización inactiva, outbox multi-réplica
+- [x] Arquitectura (NetArchTest): reglas de dependencia entre capas
+- [x] **207 pruebas** en verde
+- [x] Cobertura consolidada con `Microsoft.Testing.Extensions.CodeCoverage` + ReportGenerator: **91 % de líneas** (Release, sin migraciones), 73 % de ramas
+- [x] SonarQube: quality gate **OK**, duplicación **0,0 %**, 0 bugs, 0 vulnerabilidades, 0 hotspots, calificación A en confiabilidad, seguridad y mantenibilidad
+- [x] Corregidos: variables sin comillas en el Dockerfile (S6570) y constructor de `Program` (S1118)
+- [x] Falsos positivos aceptados (marcar como *Accepted* en el servidor): S1144 ×8 (setters privados que usa EF Core; quitarlos borraría columnas, comprobado con `has-pending-model-changes`) y S6964 ×5 (campos omitidos llegan como 0 y FluentValidation los rechaza)
+- [x] `dotnet list package --vulnerable --include-transitive`: sin vulnerabilidades; imágenes con Trivy: 0 HIGH/CRITICAL
+- [ ] Prueba de carga del listado con ~1 M de filas → ➖ fuera de alcance; el diseño (keyset + índices) se explica en ADR-009
 
 ### Fase 9 — Contenerización ✅
 - [x] `Dockerfile` multi-stage con dos imágenes finales: `api` y `migrator` (mismo build, mismas versiones)
@@ -212,10 +217,15 @@ Actualizar al cerrar cada fase (y antes de cada merge a `main`).
 - [ ] Escaneo de vulnerabilidades de la imagen (Trivy) y firma → Fase 10 (pipeline)
 - [ ] Usuario de BD con mínimo privilegio para la API (hoy `sa` en local) → Fase 10 (Secret por ambiente)
 
-### Fase 10 — CI/CD + GitOps ⏳
-- [ ] `azure-pipelines.yml`: restore → build → test + cobertura → Sonar → build/push imagen → actualizar tag en repo GitOps
-- [ ] Repositorio GitOps separado: Kustomize (`base/` + `overlays/dev|prod`), Deployment, Service, ConfigMap, Secret, probes, resources, HPA
-- [ ] Aplicación de Argo CD apuntando al repo GitOps
+### Fase 10 — CI/CD Azure DevOps ✅
+- [x] `azure-pipelines.yml` con dos stages: **CI** (PR y main) e **Imágenes**
+- [x] CI: restore con caché → build (warnings = errores) → paquetes vulnerables → modelo de EF sin cambios pendientes y `migrations.sql` al día → pruebas con Docker (Testcontainers) → TRX + cobertura publicadas → mínimo 80 % → SonarQube con `qualitygate.wait`
+- [x] Imágenes: build de `api` y `migrator` etiquetadas `<buildId>-<commit>` → Trivy (falla con HIGH/CRITICAL corregibles) → push al registro solo desde `main`
+- [x] Artefacto `migraciones-sql` para el DBA
+- [x] Cada paso de script se ejecutó en local antes del commit (la verificación de migraciones detectó un cambio que habría borrado columnas)
+- [x] SonarQube opcional por parámetro (`ejecutarSonar`) y service connections parametrizadas
+- [ ] Kubernetes, GitOps (Kustomize/Argo CD) → ➖ opcionales en el mandato; la solución queda lista para ello: imagen no root y de solo lectura, sondas `/health/live` y `/health/ready`, apagado ordenado, migrador como Job, `ForwardedHeaders`
+- [ ] Usuario de BD con mínimo privilegio para la API → se configura por ambiente (hoy `sa` en local)
 
 ### Fase 11 — Documentación ⏳
 - [ ] README: requisitos, cómo ejecutar (Docker y local), cómo obtener token, ejemplos
@@ -310,6 +320,10 @@ Actualizar al cerrar cada fase (y antes de cada merge a `main`).
 | 045 | `ForwardedHeaders` solo desde redes declaradas | `ASPNETCORE_FORWARDEDHEADERS_ENABLED` (confía en todo) | Confiar en cualquier `X-Forwarded-For` permite falsear la IP y evadir el rate limiting por IP. Probado con Kestrel real. |
 | 046 | Sin `HEALTHCHECK` en la imagen | `curl` en la imagen | La imagen no tiene shell ni curl, a propósito. La salud la verifica el orquestador por HTTP (`/health/live`, `/health/ready`), que es lo que usará Kubernetes. |
 | 047 | Entorno `Demo` para el compose | `Development` / `Production` en compose | `Development` no viaja en la imagen y `Production` prohíbe el emisor de tokens y oculta Scalar. `Demo` deja evaluar la solución con la misma imagen que iría a producción, cambiando solo configuración. |
+| 048 | Cobertura con ReportGenerator → formato genérico de SonarQube | Coverlet + OpenCover | El runner MTP ya trae cobertura de Microsoft; ReportGenerator la consolida (3 proyectos) para Azure DevOps y para Sonar, y aplica el mínimo de 80 % en el pipeline. |
+| 049 | El pipeline verifica que las migraciones estén al día | Confiar en la revisión | `has-pending-model-changes` y el diff de `migrations.sql` evitan desplegar código cuyo modelo no coincide con la BD. En este proyecto detectó un cambio que habría borrado columnas de auditoría. |
+| 050 | Trivy en el pipeline antes del push | Escaneo solo en el registro | Una imagen vulnerable no llega al registro; `--ignore-unfixed` evita bloquear por CVE sin parche disponible. |
+| 051 | Sin Kubernetes/GitOps | Manifiestos + Argo CD | Opcionales en el mandato; se priorizó la calidad verificable. El diseño ya cumple lo que pide un clúster (ver Fase 10). |
 | 018 | Cadena de conexión en user-secrets / variables de entorno | `appsettings.json` | Ningún secreto en el repositorio. |
 ---
 
@@ -326,3 +340,4 @@ Actualizar al cerrar cada fase (y antes de cada merge a `main`).
 | 2026-11-23 | Fase 6 cerrada: logs JSON con CorrelationId, OpenTelemetry (trazas, métricas de negocio, logs), Aspire Dashboard, sondas live/ready, timeouts y apagado ordenado. 187 pruebas en verde. |
 | 2026-11-23 | Fase 7 cerrada: Transactional Outbox con RabbitMQ (lease multi-réplica, confirms, backoff), eventos versionados sin PII, HybridCache + Redis, docs para consumidores. 203 pruebas en verde. |
 | 2026-11-23 | Fase 9 cerrada (antes que la 8): Dockerfile multi-stage con imágenes chiseled de API y migrador, compose completo endurecido, ForwardedHeaders, migraciones como job. 207 pruebas en verde. |
+| 2026-11-23 | Fases 8 y 10 cerradas: pipeline de Azure DevOps (CI, calidad, Trivy, push), cobertura 91 %, SonarQube quality gate OK con 0,0 % de duplicación. Kubernetes/GitOps descartados por ser opcionales. 207 pruebas en verde. |
