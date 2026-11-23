@@ -2,6 +2,7 @@ using HealthAuthorizations.Application.Autorizaciones.Common;
 using HealthAuthorizations.Application.Common.Exceptions;
 using HealthAuthorizations.Application.Common.Interfaces;
 using HealthAuthorizations.Application.Common.Results;
+using HealthAuthorizations.Application.Common.Telemetry;
 using HealthAuthorizations.Domain.Autorizaciones;
 using HealthAuthorizations.Domain.Cobertura;
 using MapsterMapper;
@@ -14,7 +15,8 @@ internal sealed class CrearAutorizacionHandler(
     IApplicationDbContext db,
     IPoliticaCobertura politica,
     ReferenciasAutorizacion referencias,
-    IMapper mapper) : IRequestHandler<CrearAutorizacionCommand, Result<CrearAutorizacionResult>>
+    IMapper mapper,
+    ApplicationTelemetry telemetry) : IRequestHandler<CrearAutorizacionCommand, Result<CrearAutorizacionResult>>
 {
     public async Task<Result<CrearAutorizacionResult>> Handle(CrearAutorizacionCommand request, CancellationToken cancellationToken)
     {
@@ -77,6 +79,8 @@ internal sealed class CrearAutorizacionHandler(
                 ?? throw new InvalidOperationException("Clave de idempotencia duplicada sin autorización asociada.");
         }
 
+        telemetry.AutorizacionCreada(autorizacion.MontoReclamado);
+
         var dto = await AutorizacionReadModel.ObtenerAsync(db, autorizacion.Id, cancellationToken);
         return new CrearAutorizacionResult(dto!, EsReintento: false);
     }
@@ -99,6 +103,8 @@ internal sealed class CrearAutorizacionHandler(
         {
             return AutorizacionErrors.ClaveIdempotenciaEnUso();
         }
+
+        telemetry.ReintentoIdempotente();
 
         var dto = await AutorizacionReadModel.ObtenerAsync(db, original.Id, cancellationToken);
         return new CrearAutorizacionResult(dto!, EsReintento: true);

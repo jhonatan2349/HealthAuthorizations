@@ -3,6 +3,7 @@ using FluentValidation;
 using HealthAuthorizations.Application.Autorizaciones.Common;
 using HealthAuthorizations.Application.Common.Behaviors;
 using HealthAuthorizations.Application.Common.Options;
+using HealthAuthorizations.Application.Common.Telemetry;
 using HealthAuthorizations.Domain.Cobertura;
 using Mapster;
 using MapsterMapper;
@@ -27,11 +28,12 @@ public static class DependencyInjection
         services.AddSingleton(config);
         services.AddScoped<IMapper, ServiceMapper>();
 
-        // MediatR: el orden de los behaviors define el pipeline (logging envuelve la validación).
+        // MediatR: el orden de los behaviors define el pipeline (traza -> logging -> validación -> handler).
         services.AddMediatR(cfg =>
         {
             cfg.LicenseKey = configuration["MediatR:LicenseKey"];
             cfg.RegisterServicesFromAssembly(assembly);
+            cfg.AddOpenBehavior(typeof(TracingBehavior<,>));
             cfg.AddOpenBehavior(typeof(LoggingBehavior<,>));
             cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));
         });
@@ -55,6 +57,9 @@ public static class DependencyInjection
             new PoliticaCoberturaPorcentual(sp.GetRequiredService<IOptions<CoberturaOptions>>().Value.PorcentajeArs));
 
         services.TryAddSingleton(TimeProvider.System);
+
+        services.AddMetrics();
+        services.AddSingleton<ApplicationTelemetry>();
 
         return services;
     }

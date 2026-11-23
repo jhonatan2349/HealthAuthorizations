@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using HealthAuthorizations.Api.ErrorHandling;
 using HealthAuthorizations.Api.Middleware;
+using HealthAuthorizations.Api.Observability;
 using HealthAuthorizations.Api.OpenApi;
 using HealthAuthorizations.Api.Security;
 using HealthAuthorizations.Api.Services;
@@ -20,6 +21,9 @@ builder.WebHost.ConfigureKestrel(kestrel =>
     kestrel.AddServerHeader = false;
     kestrel.Limits.MaxRequestBodySize = MaxRequestBodyBytes;
 });
+
+builder.AddApiObservability();
+builder.AddApiResilience();
 
 builder.Services
     .AddControllers(options =>
@@ -68,8 +72,10 @@ app.UseCors();
 app.UseAuthentication();
 app.UseRateLimiter();
 app.UseAuthorization();
+app.UseRequestTimeouts();
 
 app.MapControllers();
+app.MapApiHealthChecks();
 
 await app.RunAsync();
 
