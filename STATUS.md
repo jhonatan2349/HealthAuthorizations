@@ -20,7 +20,7 @@ Actualizar al cerrar cada fase (y antes de cada merge a `main`).
 | 6 | Observabilidad y resiliencia (logs, OTel, health checks) | `feature/fase-6-observabilidad` | ✅ |
 | 7 | Integración (Outbox + RabbitMQ, caché Redis) | `feature/fase-7-integracion` | ✅ |
 | 8 | Pruebas y calidad (≥80 % cobertura, Sonar) | `feature/fase-8-pruebas` | ⏳ |
-| 9 | Contenerización (Dockerfile, Compose completo) | `feature/fase-9-docker` | ⏳ |
+| 9 | Contenerización (Dockerfile, Compose completo) | `feature/fase-9-contenerizacion` | ✅ |
 | 10 | CI/CD Azure DevOps + GitOps (K8s, Kustomize/Argo CD) | `feature/fase-10-cicd` | ⏳ |
 | 11 | Documentación final y preparación de la defensa | `feature/fase-11-docs` | ⏳ |
 
@@ -144,7 +144,7 @@ Actualizar al cerrar cada fase (y antes de cada merge a `main`).
 - [x] Validación solo en FluentValidation (se desactiva la implícita de MVC: duplicaba reglas y respondía en inglés)
 - [x] Esquema Bearer en OpenAPI/Scalar
 - [x] 20 pruebas de seguridad (incluye 413 con Kestrel real) → 177 pruebas en total; sin paquetes vulnerables
-- [ ] `ForwardedHeaders` para IP real y HTTPS detrás del ingress → Fase 9/10 (con la topología de despliegue)
+- [x] `ForwardedHeaders` para IP real y HTTPS detrás del ingress → hecho en la Fase 9 (solo redes declaradas)
 - [x] Revisión de PII en logs con el logging estructurado → hecha en la Fase 6
 
 ### Fase 6 — Observabilidad y resiliencia ✅
@@ -193,11 +193,24 @@ Actualizar al cerrar cada fase (y antes de cada merge a `main`).
 - [ ] SonarQube: duplicación < 3 %, sin bugs bloqueantes
 - [ ] `dotnet list package --vulnerable` sin críticas
 
-### Fase 9 — Contenerización ⏳
-- [ ] Dockerfile multi-stage, imagen `aspnet` mínima, usuario no root
-- [ ] `.dockerignore`
-- [ ] Compose: api + sqlserver + rabbitmq + redis (+ collector OTel/Jaeger opcional), `depends_on` con `condition: service_healthy`
-- [ ] Aplicación automática de migraciones al arrancar (solo en Development) o job de migración
+### Fase 9 — Contenerización ✅
+- [x] `Dockerfile` multi-stage con dos imágenes finales: `api` y `migrator` (mismo build, mismas versiones)
+- [x] Imágenes *chiseled* `noble-chiseled-extra`: sin shell ni gestor de paquetes, usuario no root (UID 1654), con ICU/tzdata
+- [x] Compilación multi-arquitectura (`$BUILDPLATFORM` → `$TARGETARCH`): amd64 y arm64 sin emulación en el build
+- [x] Capa de `restore` separada (solo se invalida si cambia un `.csproj`/props) + caché de NuGet con BuildKit
+- [x] `.dockerignore`: sin `.env`, secretos, `bin/obj`, pruebas ni `.git` en el contexto
+- [x] `appsettings.Development.json` (usuarios demo) excluido de la publicación
+- [x] Migraciones como **job** (`migrator`, bundle de EF Core autocontenido), no al arrancar la API; idempotente (probado 2 veces sobre la misma BD)
+- [x] Compose completo: `sqlserver` → `migrator` (`service_completed_successfully`) → `api` (+ rabbitmq, redis, aspire con `service_healthy`)
+- [x] Endurecimiento en compose: `read_only`, `tmpfs /tmp`, `cap_drop: ALL`, `no-new-privileges`
+- [x] `stop_grace_period` 30 s > `ShutdownTimeout` 25 s; SIGTERM verificado (sale con código 0 en < 1 s sin tráfico)
+- [x] `ForwardedHeaders` configurable (`ProxyInverso`): solo redes CIDR declaradas, `ValidateOnStart` si se habilita sin redes
+- [x] Redirección HTTPS configurable: la imagen la desactiva (TLS termina en el ingress)
+- [x] Sin warnings al arrancar: Data Protection no se usa (API sin estado) → su categoría de log en `Error`
+- [x] 4 pruebas nuevas (proxy confiable / no confiable con Kestrel real, configuración insegura) → 207 en total
+- [x] Prueba de humo en contenedor: token, creación, reintento idempotente, listado, outbox publicado, `/health/ready`
+- [ ] Escaneo de vulnerabilidades de la imagen (Trivy) y firma → Fase 10 (pipeline)
+- [ ] Usuario de BD con mínimo privilegio para la API (hoy `sa` en local) → Fase 10 (Secret por ambiente)
 
 ### Fase 10 — CI/CD + GitOps ⏳
 - [ ] `azure-pipelines.yml`: restore → build → test + cobertura → Sonar → build/push imagen → actualizar tag en repo GitOps
@@ -291,6 +304,12 @@ Actualizar al cerrar cada fase (y antes de cada merge a `main`).
 | 039 | Broker como dependencia degradada, no de readiness | Readiness falla si cae RabbitMQ | El outbox desacopla la disponibilidad: sacar pods por el broker convertiría una caída parcial en total. |
 | 040 | HybridCache (L1 + Redis L2) solo para catálogos | Redis para todo / sin caché | Los catálogos son pequeños, muy leídos y casi estáticos. HybridCache evita la estampida y sigue funcionando sin Redis. Las autorizaciones cambian y requieren consistencia: no se cachean. |
 | 041 | Sin MongoDB ni SignalR | Usarlos por estar en la lista | El mandato pide seleccionar con criterio: no hay datos documentales ni clientes web en tiempo real. |
+| 042 | Migraciones en un job aparte (bundle de EF Core) | `Database.Migrate()` al arrancar la API | Con varias réplicas, migrar al arrancar compite por el esquema y obliga a que la API tenga permisos DDL. El job corre una vez antes del despliegue (servicio de compose / Job o hook PreSync en Kubernetes) y la API puede usar un usuario sin DDL. |
+| 043 | Imágenes *chiseled* (Ubuntu sin shell) | `aspnet` estándar / Alpine | Menor superficie de ataque y menos CVE que escanear; no root por defecto. Variante `extra` por ICU (culturas) y tzdata. Trade-off: sin shell para depurar → se usa `kubectl debug` o un contenedor efímero. |
+| 044 | Un Dockerfile con targets `api` y `migrator` | Dos Dockerfiles | Ambas imágenes salen del mismo build: imposible desplegar una API con un esquema de otra versión del código. |
+| 045 | `ForwardedHeaders` solo desde redes declaradas | `ASPNETCORE_FORWARDEDHEADERS_ENABLED` (confía en todo) | Confiar en cualquier `X-Forwarded-For` permite falsear la IP y evadir el rate limiting por IP. Probado con Kestrel real. |
+| 046 | Sin `HEALTHCHECK` en la imagen | `curl` en la imagen | La imagen no tiene shell ni curl, a propósito. La salud la verifica el orquestador por HTTP (`/health/live`, `/health/ready`), que es lo que usará Kubernetes. |
+| 047 | Entorno `Demo` para el compose | `Development` / `Production` en compose | `Development` no viaja en la imagen y `Production` prohíbe el emisor de tokens y oculta Scalar. `Demo` deja evaluar la solución con la misma imagen que iría a producción, cambiando solo configuración. |
 | 018 | Cadena de conexión en user-secrets / variables de entorno | `appsettings.json` | Ningún secreto en el repositorio. |
 ---
 
@@ -306,3 +325,4 @@ Actualizar al cerrar cada fase (y antes de cada merge a `main`).
 | 2026-11-23 | Fase 5 cerrada: JWT con políticas por rol, emisor de demo controlado, rate limiting, headers de seguridad, límites y CORS. 177 pruebas en verde. |
 | 2026-11-23 | Fase 6 cerrada: logs JSON con CorrelationId, OpenTelemetry (trazas, métricas de negocio, logs), Aspire Dashboard, sondas live/ready, timeouts y apagado ordenado. 187 pruebas en verde. |
 | 2026-11-23 | Fase 7 cerrada: Transactional Outbox con RabbitMQ (lease multi-réplica, confirms, backoff), eventos versionados sin PII, HybridCache + Redis, docs para consumidores. 203 pruebas en verde. |
+| 2026-11-23 | Fase 9 cerrada (antes que la 8): Dockerfile multi-stage con imágenes chiseled de API y migrador, compose completo endurecido, ForwardedHeaders, migraciones como job. 207 pruebas en verde. |
