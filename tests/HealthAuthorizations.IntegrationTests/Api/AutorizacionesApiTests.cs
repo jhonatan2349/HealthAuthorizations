@@ -67,6 +67,15 @@ public sealed class AutorizacionesApiTests(DatabaseFixture fixture)
     }
 
     [Fact]
+    public async Task Post_SinServicios_DevuelveMensajeDeFluentValidationEnEspanol()
+    {
+        using var response = await _client.CrearAsync(new { afiliadoId = 3, prestadorId = 5, fechaServicio = "2026-11-20" });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await response.JsonAsync())["errors"]!["Servicios"]![0]!.ToString().ShouldBe("La autorización debe contener al menos un servicio.");
+    }
+
+    [Fact]
     public async Task Post_JsonMalformado_Devuelve400ConElMismoContrato()
     {
         using var content = new StringContent("{malo", System.Text.Encoding.UTF8, "application/json");

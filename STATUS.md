@@ -16,7 +16,7 @@ Actualizar al cerrar cada fase (y antes de cada merge a `main`).
 | 2 | Dominio + Persistencia (EF Core, migraciones, seed) | `feature/fase-2-dominio-persistencia` | ✅ |
 | 3 | Application CQRS (MediatR, FluentValidation, reglas) | `feature/fase-3-cqrs` | ✅ |
 | 4 | API REST (endpoints, ProblemDetails, idempotencia, Scalar) | `feature/fase-4-api` | ✅ |
-| 5 | Seguridad (JWT, políticas, rate limiting) | `feature/fase-5-seguridad` | ⏳ |
+| 5 | Seguridad (JWT, políticas, rate limiting) | `feature/fase-5-seguridad` | ✅ |
 | 6 | Observabilidad y resiliencia (logs, OTel, health checks) | `feature/fase-6-observabilidad` | ⏳ |
 | 7 | Integración (Outbox + RabbitMQ, caché Redis) | `feature/fase-7-integracion` | ⏳ |
 | 8 | Pruebas y calidad (≥80 % cobertura, Sonar) | `feature/fase-8-pruebas` | ⏳ |
@@ -125,14 +125,27 @@ Actualizar al cerrar cada fase (y antes de cada merge a `main`).
 - ➖ Compresión de respuestas: se delega al ingress (evita BREACH sobre HTTPS con datos sensibles)
 - ➖ Librería de versionado (Asp.Versioning): con una sola versión basta el prefijo de ruta (YAGNI)
 
-### Fase 5 — Seguridad ⏳
-- [ ] Autenticación JWT Bearer (validación de issuer, audience, lifetime, firma)
-- [ ] Endpoint de emisión de tokens solo para demo (documentado como tal)
-- [ ] Autorización por políticas/roles (lectura vs escritura)
-- [ ] Rate limiting (`AddRateLimiter`)
-- [ ] Secretos fuera del código: variables de entorno / User Secrets / K8s Secrets
-- [ ] HTTPS, HSTS, headers de seguridad, CORS restrictivo
-- [ ] No exponer stack traces ni datos sensibles en respuestas/logs (datos de salud = PII)
+### Fase 5 — Seguridad ✅
+- [x] JWT Bearer: firma, emisor, audiencia y vigencia obligatoria; solo HS256; tolerancia de reloj de 30 s
+- [x] Dos modos sin cambiar código: `Jwt:Authority` (OIDC: Entra ID, Keycloak) o clave HMAC de 32+ bytes
+- [x] Claims sin mapeo heredado (`sub`, `name`, `role`); la auditoría registra el `sub` del token
+- [x] Emisor de tokens de demo (`POST /api/v1/auth/token`): solo por configuración, prohibido en producción (falla al arrancar), 404 si está deshabilitado, clave comparada en tiempo constante
+- [x] Usuarios de demo `lector` y `operador` (solo en `appsettings.Development.json`)
+- [x] Fallback policy: todo exige autenticación salvo documentación y emisor (`[AllowAnonymous]`)
+- [x] Políticas: lectura (`autorizaciones.lector` u `operador`), escritura (`autorizaciones.operador`)
+- [x] 401 / 403 / 429 como ProblemDetails con `code`; 401 con `WWW-Authenticate: Bearer`
+- [x] Rate limiting: global por usuario (o IP si es anónimo) y estricto en el emisor de tokens; `Retry-After`
+- [x] Headers: nosniff, `X-Frame-Options: DENY`, Referrer-Policy, CORP, CSP restrictiva (salvo `/scalar`)
+- [x] `Cache-Control: private, no-cache` (datos de salud; compatible con ETag)
+- [x] Sin header `Server`; cuerpo máximo de 1 MB (Kestrel + filtro MVC)
+- [x] HSTS fuera de Development; CORS cerrado por defecto y configurable por orígenes
+- [x] Secretos fuera del repo: clave de firma en user-secrets (dev) / variables de entorno / K8s Secret
+- [x] Configuración insegura impide el arranque (`ValidateOnStart`)
+- [x] Validación solo en FluentValidation (se desactiva la implícita de MVC: duplicaba reglas y respondía en inglés)
+- [x] Esquema Bearer en OpenAPI/Scalar
+- [x] 20 pruebas de seguridad (incluye 413 con Kestrel real) → 177 pruebas en total; sin paquetes vulnerables
+- [ ] `ForwardedHeaders` para IP real y HTTPS detrás del ingress → Fase 9/10 (con la topología de despliegue)
+- [ ] Revisión de PII en logs con el logging estructurado → Fase 6
 
 ### Fase 6 — Observabilidad y resiliencia ⏳
 - [ ] Logging estructurado (Serilog o `ILogger` + OTel) con Correlation-Id
@@ -238,6 +251,10 @@ Actualizar al cerrar cada fase (y antes de cada merge a `main`).
 | 024 | Concurrencia con `ETag` / `If-Match` (412) y `If-None-Match` (304) | Versión en el cuerpo | Es el mecanismo estándar de HTTP: clientes, proxies y herramientas lo entienden. El 304 ahorra transferencia en consultas repetidas. |
 | 025 | Reintento idempotente responde 201 + `Idempotent-Replayed: true` | 200 / 409 | El cliente recibe la misma respuesta que en el primer intento (semántica del draft IETF Idempotency-Key) y puede distinguir el reintento si le interesa. |
 | 026 | Versionado por prefijo de ruta `api/v1` | Asp.Versioning (header / query) | Hay una sola versión: el prefijo es visible, cacheable y no agrega dependencias. Se adopta la librería si aparece una v2 que conviva con la v1. |
+| 027 | JWT validado por la API; emisión delegada a un IdP (OIDC) | Usuarios y contraseñas en la API | La API no debe gestionar credenciales. Con `Jwt:Authority` se integra con Entra ID o Keycloak sin cambiar código; el emisor de demo existe solo para poder evaluar la solución sin infraestructura extra y no puede activarse en producción. |
+| 028 | Autorización por roles en políticas con nombre | `[Authorize(Roles=...)]` disperso | Las políticas centralizan la regla: cambiar quién puede escribir es un cambio en un solo lugar. El fallback obliga a que un endpoint nuevo nazca protegido. |
+| 029 | Rate limiting en la API (ventana fija por usuario/IP) | Solo en el gateway / ingress | Defensa en profundidad: la API se protege aunque el ingress cambie. En el clúster el límite efectivo por réplica se complementa con el del ingress. |
+| 030 | Validación únicamente con FluentValidation | DataAnnotations + FluentValidation | Una sola fuente de reglas, mensajes consistentes en español y probados unitariamente. |
 | 018 | Cadena de conexión en user-secrets / variables de entorno | `appsettings.json` | Ningún secreto en el repositorio. |
 ---
 
@@ -250,3 +267,4 @@ Actualizar al cerrar cada fase (y antes de cada merge a `main`).
 | 2026-11-23 | Fase 2 cerrada: dominio rico, política de cobertura, persistencia EF Core, migración inicial, seed y script SQL. 51 pruebas en verde. |
 | 2026-11-23 | Fase 3 cerrada: CQRS con MediatR, validación en pipeline, Result pattern, idempotencia, concurrencia, listado keyset. 129 pruebas en verde (incluye integración con SQL Server real). |
 | 2026-11-23 | Fase 4 cerrada: API REST completa con ProblemDetails, idempotencia, ETag/If-Match, Correlation-Id, catálogos y Scalar. 157 pruebas en verde (28 HTTP). |
+| 2026-11-23 | Fase 5 cerrada: JWT con políticas por rol, emisor de demo controlado, rate limiting, headers de seguridad, límites y CORS. 177 pruebas en verde. |

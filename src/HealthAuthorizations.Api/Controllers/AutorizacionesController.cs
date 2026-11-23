@@ -1,10 +1,12 @@
 using HealthAuthorizations.Api.Contracts;
 using HealthAuthorizations.Api.Http;
+using HealthAuthorizations.Api.Security;
 using HealthAuthorizations.Application.Autorizaciones.Common;
 using HealthAuthorizations.Application.Autorizaciones.Listar;
 using HealthAuthorizations.Application.Autorizaciones.Obtener;
 using HealthAuthorizations.Application.Common.Pagination;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Net.Http.Headers;
 
@@ -12,6 +14,9 @@ namespace HealthAuthorizations.Api.Controllers;
 
 /// <summary>Gestión de autorizaciones de servicios de salud.</summary>
 [Route("api/v1/autorizaciones")]
+[Authorize(Policy = Politicas.Lectura)]
+[ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+[ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
 public sealed class AutorizacionesController(ISender sender) : ApiControllerBase(sender)
 {
     public const string IdempotencyKeyHeader = "Idempotency-Key";
@@ -23,6 +28,7 @@ public sealed class AutorizacionesController(ISender sender) : ApiControllerBase
     /// se devuelve la misma autorización con el header <c>Idempotent-Replayed: true</c> en lugar de duplicarla.
     /// </remarks>
     [HttpPost]
+    [Authorize(Policy = Politicas.Escritura)]
     [ProducesResponseType<AutorizacionDto>(StatusCodes.Status201Created)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
@@ -85,6 +91,7 @@ public sealed class AutorizacionesController(ISender sender) : ApiControllerBase
     /// <summary>Actualiza una autorización activa (reemplaza datos y servicios, recalcula montos).</summary>
     /// <remarks>Envíe <c>If-Match</c> con el ETag leído: si otro usuario la modificó, responde 412 en lugar de sobrescribir.</remarks>
     [HttpPut("{id:long}")]
+    [Authorize(Policy = Politicas.Escritura)]
     [ProducesResponseType<AutorizacionDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
@@ -111,6 +118,7 @@ public sealed class AutorizacionesController(ISender sender) : ApiControllerBase
 
     /// <summary>Inactiva una autorización. Se conserva para fines históricos y ya no puede modificarse.</summary>
     [HttpPost("{id:long}/inactivacion")]
+    [Authorize(Policy = Politicas.Escritura)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]

@@ -4,18 +4,32 @@
 @host = http://localhost:5048
 @api = {{host}}/api/v1
 
+### 0. Token de demo (operador: consulta y escritura). Para solo consulta: usuario "lector", clave "Lector.Demo.2026".
+# @name login
+POST {{api}}/auth/token
+Content-Type: application/json
+
+{ "usuario": "operador", "clave": "Operador.Demo.2026" }
+
+###
+@token = {{login.response.body.accessToken}}
+
 ### 1. Catálogos para armar la solicitud
 GET {{api}}/catalogos/tipos-servicio
+Authorization: Bearer {{token}}
 
 ###
 GET {{api}}/catalogos/prestadores?tipoPrestadorId=3
+Authorization: Bearer {{token}}
 
 ###
 GET {{api}}/catalogos/afiliados?buscar=Santos
+Authorization: Bearer {{token}}
 
 ### 2. Crear autorización (idempotente). Repetir esta misma solicitud devuelve la misma autorización.
 # @name crear
 POST {{api}}/autorizaciones
+Authorization: Bearer {{token}}
 Content-Type: application/json
 Idempotency-Key: demo-0001
 X-Correlation-Id: demo-crear
@@ -34,13 +48,16 @@ X-Correlation-Id: demo-crear
 ### 3. Detalle (devuelve ETag)
 # @name detalle
 GET {{api}}/autorizaciones/{{crear.response.body.id}}
+Authorization: Bearer {{token}}
 
 ### 4. Detalle condicional: 304 si no cambió
 GET {{api}}/autorizaciones/{{crear.response.body.id}}
+Authorization: Bearer {{token}}
 If-None-Match: {{detalle.response.headers.ETag}}
 
 ### 5. Actualizar con concurrencia optimista (repetirla devuelve 412)
 PUT {{api}}/autorizaciones/{{crear.response.body.id}}
+Authorization: Bearer {{token}}
 Content-Type: application/json
 If-Match: {{detalle.response.headers.ETag}}
 
@@ -55,12 +72,15 @@ If-Match: {{detalle.response.headers.ETag}}
 
 ### 6. Listado rápido con filtros y cursor (usar nextCursor para la página siguiente)
 GET {{api}}/autorizaciones?estado=Activa&limite=5
+Authorization: Bearer {{token}}
 
 ###
 GET {{api}}/autorizaciones?afiliadoId=3&fechaDesde=2026-01-01&tipoServicioId=5
+Authorization: Bearer {{token}}
 
 ### 7. Inactivar (se conserva para el histórico; repetirla devuelve 409)
 POST {{api}}/autorizaciones/{{crear.response.body.id}}/inactivacion
+Authorization: Bearer {{token}}
 Content-Type: application/json
 
 { "motivo": "Emitida por error de digitación" }
@@ -68,15 +88,21 @@ Content-Type: application/json
 ### 8. Errores con ProblemDetails
 # 400: validación
 POST {{api}}/autorizaciones
+Authorization: Bearer {{token}}
 Content-Type: application/json
 
 { "afiliadoId": 0, "prestadorId": 5, "fechaServicio": "2026-11-20", "servicios": [] }
 
 ### 422: afiliado inexistente
 POST {{api}}/autorizaciones
+Authorization: Bearer {{token}}
 Content-Type: application/json
 
 { "afiliadoId": 9999, "prestadorId": 5, "fechaServicio": "{{$datetime 'YYYY-MM-DD'}}", "servicios": [ { "tipoServicioId": 1, "descripcion": "Consulta", "montoReclamado": 100 } ] }
 
+### 401: sin token
+GET {{api}}/autorizaciones
+
 ### 404
 GET {{api}}/autorizaciones/999999999
+Authorization: Bearer {{token}}

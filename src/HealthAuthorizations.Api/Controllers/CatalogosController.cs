@@ -1,12 +1,17 @@
+using HealthAuthorizations.Api.Security;
 using HealthAuthorizations.Application.Catalogos;
 using HealthAuthorizations.Application.Common.Pagination;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HealthAuthorizations.Api.Controllers;
 
 /// <summary>Catálogos de solo lectura necesarios para registrar autorizaciones.</summary>
 [Route("api/v1/catalogos")]
+[Authorize(Policy = Politicas.Lectura)]
+[ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+[ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
 public sealed class CatalogosController(ISender sender) : ApiControllerBase(sender)
 {
     /// <summary>Tipos de servicio autorizables (consulta, emergencia, hospitalización, laboratorio, imágenes).</summary>

@@ -1,9 +1,9 @@
-using System.Security.Claims;
+using HealthAuthorizations.Api.Security;
 using HealthAuthorizations.Application.Common.Interfaces;
 
 namespace HealthAuthorizations.Api.Services;
 
-/// <summary>Obtiene el usuario autenticado desde el contexto HTTP (claims del JWT).</summary>
+/// <summary>Usuario autenticado según el claim "sub" del JWT; se usa para la auditoría.</summary>
 internal sealed class CurrentUser(IHttpContextAccessor httpContextAccessor) : ICurrentUser
 {
     public string? UsuarioId
@@ -11,7 +11,7 @@ internal sealed class CurrentUser(IHttpContextAccessor httpContextAccessor) : IC
         get
         {
             var user = httpContextAccessor.HttpContext?.User;
-            return user?.FindFirstValue(ClaimTypes.NameIdentifier) ?? user?.Identity?.Name;
+            return user?.FindFirst(Claims.Subject)?.Value ?? user?.Identity?.Name;
         }
     }
 }
