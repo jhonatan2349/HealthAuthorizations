@@ -13,6 +13,9 @@ internal sealed class CorrelationIdMiddleware(RequestDelegate next, ILogger<Corr
     public const string HeaderName = "X-Correlation-Id";
     private const int MaxLongitud = 64;
 
+    private static readonly Func<ILogger, string, IDisposable?> ScopeCorrelacion =
+        LoggerMessage.DefineScope<string>("CorrelationId:{CorrelationId}");
+
     public async Task InvokeAsync(HttpContext context)
     {
         var recibido = context.Request.Headers[HeaderName].ToString();
@@ -27,7 +30,8 @@ internal sealed class CorrelationIdMiddleware(RequestDelegate next, ILogger<Corr
             return Task.CompletedTask;
         });
 
-        using (logger.BeginScope(new Dictionary<string, object> { ["CorrelationId"] = correlationId }))
+        // Scope con plantilla: legible en consola de texto y propiedad estructurada "CorrelationId" en JSON / OpenTelemetry.
+        using (ScopeCorrelacion(logger, correlationId))
         {
             await next(context);
         }
