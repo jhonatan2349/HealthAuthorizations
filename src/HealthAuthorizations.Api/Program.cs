@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using HealthAuthorizations.Api.ErrorHandling;
+using HealthAuthorizations.Api.Http;
 using HealthAuthorizations.Api.Middleware;
 using HealthAuthorizations.Api.Observability;
 using HealthAuthorizations.Api.OpenApi;
@@ -41,6 +42,7 @@ builder.Services.AddApiProblemDetails();
 builder.Services.AddApiSecurity();
 builder.Services.AddApiRateLimiting();
 builder.Services.AddApiCors(builder.Configuration);
+builder.Services.AddApiProxyInverso(builder.Configuration);
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
@@ -50,6 +52,7 @@ builder.Services.AddInfrastructure(builder.Configuration);
 
 var app = builder.Build();
 
+app.UseApiProxyInverso();
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseExceptionHandler();
@@ -66,7 +69,12 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-app.UseHttpsRedirection();
+// En contenedor TLS termina en el ingress y Kestrel solo escucha HTTP: la imagen desactiva la redirección.
+if (app.Configuration.GetValue("Https:RedireccionHabilitada", defaultValue: true))
+{
+    app.UseHttpsRedirection();
+}
+
 app.UseCors();
 
 app.UseAuthentication();
@@ -80,4 +88,9 @@ app.MapApiHealthChecks();
 await app.RunAsync();
 
 /// <summary>Punto de entrada; parcial y público para las pruebas con WebApplicationFactory.</summary>
-public partial class Program;
+public partial class Program
+{
+    protected Program()
+    {
+    }
+}

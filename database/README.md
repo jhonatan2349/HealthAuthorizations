@@ -12,6 +12,13 @@ dotnet tool restore
 dotnet ef database update -p src/HealthAuthorizations.Infrastructure -s src/HealthAuthorizations.Api
 ```
 
+**Con el migrador en contenedor (compose / Kubernetes):**
+```bash
+docker compose up migrator          # o: docker build --target migrator -t healthauthorizations-migrator .
+```
+Es un bundle de EF Core autocontenido: aplica solo las migraciones pendientes y termina. Lee la cadena de
+`ConnectionStrings__Default` (usuario con permisos DDL). La API no migra al arrancar.
+
 **Con el script (DBA / pipeline):**
 ```bash
 sqlcmd -S <servidor> -d HealthAuthorizations -I -i database/migrations.sql
