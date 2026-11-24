@@ -178,22 +178,41 @@ En `main` también construye las imágenes, las escanea con Trivy y las publica.
 | Documento | Contenido |
 |---|---|
 | [docs/guia-defensa.md](docs/guia-defensa.md) | Cómo explicar el proyecto: recorrido de una solicitud, reglas, preguntas frecuentes, cambios en vivo |
-| [docs/decisiones-tecnicas.md](docs/decisiones-tecnicas.md) | 51 decisiones con alternativas y justificación |
+| [docs/decisiones-tecnicas.md](docs/decisiones-tecnicas.md) | 52 decisiones con alternativas y justificación |
 | [docs/eventos-integracion.md](docs/eventos-integracion.md) | Contrato de eventos para sistemas consumidores |
 | [database/README.md](database/README.md) | Migraciones y script SQL idempotente |
 | [STATUS.md](STATUS.md) | Avance por fases y checklist de buenas prácticas |
 
 ## Estructura
 
+Convención: **el dominio y los casos de uso se organizan por negocio** y se nombran en español (lenguaje del negocio: `Autorizaciones`, `Cobertura`, `Crear`); **lo técnico se organiza por responsabilidad** y se nombra en inglés (`Persistence`, `Messaging`, `Security`).
+
 ```
 src/
-  HealthAuthorizations.Domain/          Agregado Autorizacion, catálogos, política de cobertura, eventos de dominio
-  HealthAuthorizations.Application/     Casos de uso (Crear, Actualizar, Inactivar, Listar, Obtener), validadores, behaviors
-  HealthAuthorizations.Infrastructure/  EF Core, migraciones, seed, outbox, RabbitMQ, health checks
-  HealthAuthorizations.Api/             Controllers, seguridad, ProblemDetails, OpenAPI, observabilidad
+  HealthAuthorizations.Domain/
+    Autorizaciones/      Agregado Autorizacion, detalle, participantes, eventos de dominio
+    Catalogos/           Afiliado, Prestador, Contratante, Intermediario, tipos
+    Cobertura/           Política de distribución (70/30) y DistribucionMonto
+    Common/              Entity, AggregateRoot, auditoría, Guard
+  HealthAuthorizations.Application/
+    Autorizaciones/      Una carpeta por caso de uso: Crear, Actualizar, Inactivar, Listar, Obtener
+    Catalogos/           Consultas de catálogos (con caché)
+    IntegrationEvents/   Contratos de eventos publicados a otros sistemas
+    Common/              Behaviors, Result, paginación keyset, interfaces, telemetría
+  HealthAuthorizations.Infrastructure/
+    Persistence/         DbContext, configuraciones, interceptores, migraciones, seed, outbox
+    Messaging/           Publicación del outbox a RabbitMQ
+    HealthChecks/        Sonda de SQL Server
+  HealthAuthorizations.Api/
+    Controllers/ Contracts/   Endpoints y modelos de entrada
+    Security/            JWT, políticas, rate limiting, CORS, usuario actual
+    ErrorHandling/       ProblemDetails y manejo global de excepciones
+    Hosting/             Proxy inverso, timeouts y apagado ordenado
+    Observability/       OpenTelemetry y endpoints de salud
+    Middleware/ Http/ OpenApi/
 tests/
-  HealthAuthorizations.UnitTests/          Dominio, validadores, handlers
-  HealthAuthorizations.IntegrationTests/   API completa contra SQL Server y RabbitMQ en contenedores
+  HealthAuthorizations.UnitTests/          Domain/ y Application/ (dominio, validadores, handlers)
+  HealthAuthorizations.IntegrationTests/   Api/, Autorizaciones/, Messaging/ contra SQL Server y RabbitMQ reales; Fixtures/
   HealthAuthorizations.ArchitectureTests/  Reglas de dependencia entre capas
 database/          Script SQL idempotente
 docs/              Documentación

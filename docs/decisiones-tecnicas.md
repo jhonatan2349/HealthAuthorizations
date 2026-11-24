@@ -16,6 +16,7 @@ Los números son estables: se citan desde el código, el [STATUS](../STATUS.md) 
 | 016 | Integridad en dominio **y** en BD (CHECK/FK/UNIQUE) | Solo en el dominio | La BD es la última línea de defensa ante scripts, otros sistemas o errores futuros. |
 | 017 | Excepciones de dominio para invariantes | Result en el dominio | Una invariante rota es un error del llamador; los handlers validan antes (FluentValidation) y usan Result para errores esperados (Fase 3). |
 | 019 | Result pattern para errores esperados; excepciones para lo excepcional | Excepciones para todo | No encontrada, inactiva o referencia inexistente son flujos normales: Result los hace explícitos y baratos. Validación de entrada y concurrencia usan excepciones porque cortan el pipeline y las maneja un handler global. |
+| 052 | Carpetas por negocio en Domain/Application y por responsabilidad en Infrastructure/Api; negocio en español, técnico en inglés | Todo por tipo técnico (`Commands/`, `Handlers/`, `Validators/`) / todo en un idioma | Por caso de uso, un cambio toca una sola carpeta. Los nombres del negocio usan el lenguaje del mandato (lenguaje ubicuo) y los técnicos el vocabulario estándar de .NET, así cada nombre dice de qué lado está. |
 | 020 | Lado de lectura con JOINs y proyección directa | Navegaciones en el agregado + Include + Mapster `ProjectToType` | El agregado referencia a otros por Id (DDD). La proyección trae solo las columnas necesarias en una consulta. Mapster se usa donde aporta: mapear contratos de entrada al dominio. |
 
 ## Datos y rendimiento

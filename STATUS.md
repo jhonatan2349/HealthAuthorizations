@@ -272,7 +272,7 @@ Las pruebas se escribieron en cada fase; aquí se consolidan y se miden (SonarQu
 
 ## 4. Registro de decisiones técnicas (ADR resumido)
 
-Movido a [docs/decisiones-tecnicas.md](docs/decisiones-tecnicas.md), agrupado por tema (ADR-001 a ADR-051).
+Movido a [docs/decisiones-tecnicas.md](docs/decisiones-tecnicas.md), agrupado por tema (ADR-001 a ADR-052).
 
 ---
 

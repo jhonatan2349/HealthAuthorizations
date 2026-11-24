@@ -116,6 +116,9 @@ Era opcional. Prioricé calidad verificable: pipeline, Sonar y Trivy. La soluci�
 - migrador listo para correr como Job;
 - `ForwardedHeaders`.
 
+**¿Por qué hay carpetas en español y otras en inglés?**
+Es una convención (ADR-052). Lo del negocio va en español porque es el lenguaje del mandato y del usuario: `Autorizaciones`, `Cobertura`, `Crear`. Lo técnico va en inglés porque es el vocabulario estándar de .NET: `Persistence`, `Messaging`, `Security`. Así cada nombre indica si es regla de negocio o infraestructura. Domain y Application se organizan por caso de uso, para que un cambio toque una sola carpeta.
+
 **¿Por qué Mapster y Shouldly, y no AutoMapper y FluentAssertions?**
 Ambas alternativas pasaron a licencia comercial. Mapster y Shouldly son MIT y cubren lo necesario (ADR-002, ADR-011).
 
@@ -161,4 +164,4 @@ Para la demo del 80/20 en Docker: `Cobertura__PorcentajeArs: "80"` en el servici
 | Duplicación | 0,0 % (meta < 3 %) |
 | SonarQube | Quality gate OK, 0 bugs, 0 vulnerabilidades, calificación A |
 | Vulnerabilidades | 0 en paquetes NuGet, 0 HIGH/CRITICAL en imágenes |
-| Decisiones documentadas | 51 ADR |
+| Decisiones documentadas | 52 ADR |
