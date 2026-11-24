@@ -13,14 +13,14 @@ using HealthAuthorizations.Infrastructure.Messaging;
 using HealthAuthorizations.Infrastructure.Persistence;
 using HealthAuthorizations.Infrastructure.Persistence.Outbox;
 using HealthAuthorizations.IntegrationTests.Autorizaciones;
-using HealthAuthorizations.IntegrationTests.Infrastructure;
+using HealthAuthorizations.IntegrationTests.Fixtures;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using RabbitMQ.Client;
 using static HealthAuthorizations.IntegrationTests.Api.ApiClientExtensions;
 
-namespace HealthAuthorizations.IntegrationTests.Mensajeria;
+namespace HealthAuthorizations.IntegrationTests.Messaging;
 
 /// <summary>Las pruebas de esta clase corren en secuencia: comparten el outbox y procesan lotes.</summary>
 public sealed class OutboxTests(DatabaseFixture fixture)

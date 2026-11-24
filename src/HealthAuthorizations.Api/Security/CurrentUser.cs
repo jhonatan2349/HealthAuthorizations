@@ -1,7 +1,6 @@
-using HealthAuthorizations.Api.Security;
 using HealthAuthorizations.Application.Common.Interfaces;
 
-namespace HealthAuthorizations.Api.Services;
+namespace HealthAuthorizations.Api.Security;
 
 /// <summary>Usuario autenticado según el claim "sub" del JWT; se usa para la auditoría.</summary>
 internal sealed class CurrentUser(IHttpContextAccessor httpContextAccessor) : ICurrentUser

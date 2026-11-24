@@ -1,11 +1,10 @@
 using System.Text.Json.Serialization;
 using HealthAuthorizations.Api.ErrorHandling;
-using HealthAuthorizations.Api.Http;
+using HealthAuthorizations.Api.Hosting;
 using HealthAuthorizations.Api.Middleware;
 using HealthAuthorizations.Api.Observability;
 using HealthAuthorizations.Api.OpenApi;
 using HealthAuthorizations.Api.Security;
-using HealthAuthorizations.Api.Services;
 using HealthAuthorizations.Application;
 using HealthAuthorizations.Application.Common.Interfaces;
 using HealthAuthorizations.Infrastructure;

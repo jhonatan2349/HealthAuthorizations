@@ -12,9 +12,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Testcontainers.MsSql;
 using Testcontainers.RabbitMq;
 
-[assembly: AssemblyFixture(typeof(HealthAuthorizations.IntegrationTests.Infrastructure.DatabaseFixture))]
+[assembly: AssemblyFixture(typeof(HealthAuthorizations.IntegrationTests.Fixtures.DatabaseFixture))]
 
-namespace HealthAuthorizations.IntegrationTests.Infrastructure;
+namespace HealthAuthorizations.IntegrationTests.Fixtures;
 
 /// <summary>
 /// SQL Server real en un contenedor efímero, compartido por todo el ensamblado y migrado una sola vez.

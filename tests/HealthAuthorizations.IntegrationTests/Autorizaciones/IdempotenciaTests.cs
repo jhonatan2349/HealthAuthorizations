@@ -1,4 +1,4 @@
-using HealthAuthorizations.IntegrationTests.Infrastructure;
+using HealthAuthorizations.IntegrationTests.Fixtures;
 using Microsoft.EntityFrameworkCore;
 
 namespace HealthAuthorizations.IntegrationTests.Autorizaciones;

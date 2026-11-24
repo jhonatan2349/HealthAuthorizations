@@ -5,7 +5,7 @@ using HealthAuthorizations.Application.Autorizaciones.Obtener;
 using HealthAuthorizations.Application.Common.Exceptions;
 using HealthAuthorizations.Application.Common.Results;
 using HealthAuthorizations.Domain.Autorizaciones;
-using HealthAuthorizations.IntegrationTests.Infrastructure;
+using HealthAuthorizations.IntegrationTests.Fixtures;
 using Microsoft.EntityFrameworkCore;
 
 namespace HealthAuthorizations.IntegrationTests.Autorizaciones;

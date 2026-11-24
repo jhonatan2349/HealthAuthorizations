@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Net;
 using HealthAuthorizations.Application.Common.Telemetry;
-using HealthAuthorizations.IntegrationTests.Infrastructure;
+using HealthAuthorizations.IntegrationTests.Fixtures;
 using static HealthAuthorizations.IntegrationTests.Api.ApiClientExtensions;
 
 namespace HealthAuthorizations.IntegrationTests.Api;

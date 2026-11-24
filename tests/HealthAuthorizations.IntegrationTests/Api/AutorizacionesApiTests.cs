@@ -1,6 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
-using HealthAuthorizations.IntegrationTests.Infrastructure;
+using HealthAuthorizations.IntegrationTests.Fixtures;
 using static HealthAuthorizations.IntegrationTests.Api.ApiClientExtensions;
 
 namespace HealthAuthorizations.IntegrationTests.Api;
