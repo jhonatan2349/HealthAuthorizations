@@ -1,7 +1,7 @@
 using IPNetwork = System.Net.IPNetwork;
 using Microsoft.AspNetCore.HttpOverrides;
 
-namespace HealthAuthorizations.Api.Http;
+namespace HealthAuthorizations.Api.Hosting;
 
 /// <summary>
 /// Confianza en el proxy inverso o ingress que termina TLS (sección "ProxyInverso").

@@ -2,7 +2,7 @@ using System.Security.Cryptography;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 
-namespace HealthAuthorizations.IntegrationTests.Infrastructure;
+namespace HealthAuthorizations.IntegrationTests.Fixtures;
 
 /// <summary>Levanta la API real apuntando al SQL Server del contenedor, con una clave JWT efímera.</summary>
 internal sealed class ApiFactory(

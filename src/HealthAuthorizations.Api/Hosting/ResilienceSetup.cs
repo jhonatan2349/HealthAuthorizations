@@ -2,7 +2,7 @@ using HealthAuthorizations.Api.ErrorHandling;
 using Microsoft.AspNetCore.Http.Timeouts;
 using Microsoft.AspNetCore.Mvc;
 
-namespace HealthAuthorizations.Api.Observability;
+namespace HealthAuthorizations.Api.Hosting;
 
 /// <summary>Límites de tiempo (sección "Resiliencia").</summary>
 public sealed class ResilienciaOptions

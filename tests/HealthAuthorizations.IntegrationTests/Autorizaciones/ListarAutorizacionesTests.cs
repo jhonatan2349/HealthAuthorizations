@@ -2,7 +2,7 @@ using HealthAuthorizations.Application.Autorizaciones.Common;
 using HealthAuthorizations.Application.Autorizaciones.Inactivar;
 using HealthAuthorizations.Application.Autorizaciones.Listar;
 using HealthAuthorizations.Domain.Autorizaciones;
-using HealthAuthorizations.IntegrationTests.Infrastructure;
+using HealthAuthorizations.IntegrationTests.Fixtures;
 
 namespace HealthAuthorizations.IntegrationTests.Autorizaciones;
 

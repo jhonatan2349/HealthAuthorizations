@@ -1,8 +1,8 @@
 using HealthAuthorizations.Application.Catalogos;
-using HealthAuthorizations.IntegrationTests.Infrastructure;
+using HealthAuthorizations.IntegrationTests.Fixtures;
 using Microsoft.EntityFrameworkCore;
 
-namespace HealthAuthorizations.IntegrationTests.Mensajeria;
+namespace HealthAuthorizations.IntegrationTests.Messaging;
 
 public sealed class CacheCatalogosTests(DatabaseFixture fixture)
 {
