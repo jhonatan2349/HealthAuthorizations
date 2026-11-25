@@ -46,6 +46,9 @@ services:
   rabbitmq:
     image: rabbitmq:4.1-management-alpine
     container_name: healthauth-rabbitmq
+    # RabbitMQ guarda los datos en una carpeta con el nombre del nodo (rabbit@<hostname>). Sin hostname fijo,
+    # cada contenedor nuevo (docker compose down/up) usa otro nombre y no encuentra colas ni exchanges previos.
+    hostname: rabbitmq
     environment:
       RABBITMQ_DEFAULT_USER: "${RABBITMQ_USER}"
       RABBITMQ_DEFAULT_PASS: "${RABBITMQ_PASSWORD}"

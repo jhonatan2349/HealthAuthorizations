@@ -140,6 +140,22 @@ Para la demo del 80/20 en Docker: `Cobertura__PorcentajeArs: "80"` en el servici
 
 ## 8. Guion de demostración (≈ 10 min)
 
+### Antes de la presentación: una cola para ver los eventos
+
+La API publica en el exchange y cada sistema consumidor crea su propia cola. Para la demo se simula un consumidor con una cola. Se hace **una sola vez**: la configuración queda en el volumen de RabbitMQ y sobrevive a `docker compose down` / `up`. Solo se pierde con `docker compose down -v`, que borra los volúmenes, incluida la base de datos.
+
+En la consola de RabbitMQ (http://localhost:15672). Las secciones aparecen plegadas (▸): hay que hacer clic en el título para desplegarlas.
+
+1. **Exchanges** → ▸ *Add a new exchange*: Name `healthauthorizations.eventos`, Type `topic`, Durability `Durable` → **Add exchange**.
+   (Si la API ya publicó algún evento, el exchange ya existe y este paso se omite.)
+2. **Queues and Streams** → ▸ *Add a new queue*: Name `demo-auditoria`, Type `Classic`, Durability `Durable` → **Add queue**.
+3. Abrir la cola → ▸ *Bindings* → *From exchange* `healthauthorizations.eventos`, *Routing key* `autorizacion.#` → **Bind**. Debe quedar *Bindings (2)*.
+
+Con `autorizacion.#` llegan los tres eventos; con `autorizacion.creada.v1`, solo las creaciones. Sirve para mostrar que cada consumidor elige qué escuchar sin cambiar la API.
+
+### Durante la presentación
+
+
 1. **Levantar todo**: `docker compose up -d --build`, mostrar `docker compose ps` (el `migrator` terminó con código 0).
 2. **Scalar** (http://localhost:8080/scalar):
    - Obtener un token con `POST /api/v1/auth/token`, usuario `operador` y clave `Operador.Demo.2026` (solo lectura: `lector` / `Lector.Demo.2026`). Pegarlo en *Authentication*.
@@ -148,7 +164,7 @@ Para la demo del 80/20 en Docker: `Cobertura__PorcentajeArs: "80"` en el servici
    - Pedir el detalle (`ETag`), hacer el PUT con `If-Match` y repetirlo: **412**.
    - Inactivar con motivo e intentar actualizar: error de negocio. El registro sigue consultable.
    - Crear con un afiliado inexistente: **422** con ProblemDetails, `code` y `traceId`.
-3. **RabbitMQ** (http://localhost:15672): el exchange `healthauthorizations.eventos` recibió los mensajes.
+3. **RabbitMQ** (http://localhost:15672, usuario y clave de `.env`): en *Queues and Streams* → `demo-auditoria` → **Get messages** → *Get Message(s)*. Mostrar el evento: `type`, `message_id` y el JSON sin datos personales ni clínicos.
 4. **Aspire** (http://localhost:18888): buscar el `traceId` del error y mostrar la traza completa, del HTTP al SQL.
 5. **Calidad**: `azure-pipelines.yml` (etapas) y el STATUS con cobertura 91 %, Sonar OK y Trivy limpio.
 6. **Cambio en vivo**: 80/20 por configuración y crear otra autorización.
